@@ -1,65 +1,73 @@
 <!DOCTYPE html>
-<link rel="stylesheet" href="assets/css/style.css">
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cogestione Studentesca</title>
 
+<style>
+body { font-family: Arial, sans-serif; background:#f4f4f4; padding:20px; }
+.card { background:#fff; padding:15px; margin-bottom:12px; border-radius:8px; }
+button { padding:8px 12px; border:none; border-radius:6px; background:#007bff; color:#fff; cursor:pointer; }
+button:disabled { background:#aaa; }
+input, select { width:100%; padding:8px; margin:6px 0; }
+.orario-menu { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.orario-btn { padding:6px 10px; border:1px solid #007bff; border-radius:6px; cursor:pointer; }
+.orario-btn.disabled { opacity:0.4; pointer-events:none; }
+.floating-admin { position:fixed; bottom:20px; right:20px; }
+</style>
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-<style>
-body { font-family: Arial, sans-serif; background:#f4f4f4; margin:0; padding:20px }
-h1,h2 { text-align:center }
-.card { background:#fff; padding:15px; border-radius:8px; margin-bottom:12px }
-button { padding:8px 12px; border:none; border-radius:6px; background:#007bff; color:#fff; cursor:pointer }
-button:disabled { background:#999 }
-input,select { width:100%; padding:8px; margin:6px 0 }
-.orari { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px }
-.orario-btn { padding:6px 10px; border:1px solid #007bff; border-radius:6px; cursor:pointer; background:#fff }
-.orario-btn.active { background:#007bff; color:#fff }
-.disabled { opacity:.5; pointer-events:none }
-.floating-admin { position:fixed; bottom:20px; right:20px }
-</style>
 </head>
 
 <body>
-
 <h1>Cogestione Studentesca</h1>
 <div id="app"></div>
 <button class="floating-admin" onclick="checkAdmin()">Admin</button>
 
 <script>
-// 🔥 FIREBASE CONFIG
+/* ================= CONFIG ================= */
+const ADMIN_PASSWORD = "avogadro@2025";
+
 const firebaseConfig = {
   apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
   authDomain: "cogestione-liceo-avogadro.firebaseapp.com",
   databaseURL: "https://cogestione-liceo-avogadro-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "cogestione-liceo-avogadro",
-  storageBucket: "cogestione-liceo-avogadro.firebasestorage.app",
-  messagingSenderId: "901326211292",
-  appId: "1:901326211292:web:df9a4d5b3317164a274c19"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// 🔹 STATO
+/* ================= STATE ================= */
 let studenti = {};
 let corsi = {};
-let iscrizioni = {};
+let registrazioni = {};
+let giornoStudente = "Giorno 1";
 let utente = null;
+let view = "login";
 let filtroOrario = null;
-const ADMIN_PASSWORD = "avogadro@2025";
 
-// 🔹 LISTENERS REALTIME
-firebase.database().ref("studenti").on("value", s => { studenti = s.val() || {}; render(); });
-firebase.database().ref("corsi").on("value", s => { corsi = s.val() || {}; render(); });
-firebase.database().ref("iscrizioni").on("value", s => { iscrizioni = s.val() || {}; render(); });
+/* ================= REALTIME ================= */
+db.ref().on("value", snap => {
+  const d = snap.val() || {};
+  studenti = d.studenti || {};
+  corsi = d.corsi || {};
+  registrazioni = d.registrazioni || {};
+  giornoStudente = d.giornoStudente || "Giorno 1";
+  render();
+});
 
-// 🔹 LOGIN
+/* ================= RENDER ================= */
+function render(){
+  if(view==="login") renderLogin();
+  if(view==="home") renderHome();
+  if(view==="admin") renderAdmin();
+}
+
+/* ================= LOGIN ================= */
 function renderLogin(){
   app.innerHTML = `
   <div class="card">
@@ -72,111 +80,156 @@ function renderLogin(){
 }
 
 function login(){
-  const nome = nome.value.trim();
-  const cognome = cognome.value.trim();
-  const password = password.value.trim();
-  const key = Object.keys(studenti).find(k =>
-    studenti[k].nome.toLowerCase()==nome.toLowerCase() &&
-    studenti[k].cognome.toLowerCase()==cognome.toLowerCase() &&
-    studenti[k].password===password
-  );
-  if(!key) return alert("Studente non trovato");
-  utente = { id:key, ...studenti[key] };
-  render();
+  const nome = nome.value.trim().toLowerCase();
+  const cognome = cognome.value.trim().toLowerCase();
+  const pass = password.value.trim();
+
+  const found = Object.values(studenti)
+    .find(s => s.nome.toLowerCase()==nome && s.cognome.toLowerCase()==cognome);
+
+  if(!found || found.password!==pass) return alert("Credenziali errate");
+  utente = found;
+  view="home"; render();
 }
 
-// 🔹 HOME STUDENTE
+/* ================= HOME ================= */
 function renderHome(){
-  let html = `<h2>${utente.nome} ${utente.cognome} (${utente.classe})</h2>
-  <button onclick="utente=null;render()">Logout</button><br><br>`;
+  let html = `<h3>Ciao ${utente.nome} ${utente.cognome}</h3>
+  <button onclick="logout()">Logout</button><br><br>`;
 
-  const lista = Object.values(corsi).sort((a,b)=>a.inizio.localeCompare(b.inizio));
-  const orari = [...new Set(lista.map(c=>c.inizio))];
+  const lista = Object.values(corsi)
+    .filter(c=>c.giorno===giornoStudente)
+    .sort((a,b)=>a.inizio.localeCompare(b.inizio));
 
-  html += `<div class="orari">
-    <div class="orario-btn ${!filtroOrario?'active':''}" onclick="filtroOrario=null;render()">Tutti</div>`;
-  orari.forEach(o=>{
-    html+=`<div class="orario-btn ${filtroOrario===o?'active':''}" onclick="filtroOrario='${o}';render()">${o}</div>`;
-  });
-  html += `</div>`;
+  const orari=[...new Set(lista.map(c=>c.inizio))];
+  html+=`<div class="orario-menu">
+  <div class="orario-btn ${!filtroOrario?'disabled':''}" onclick="filtroOrario=null;render()">Tutti</div>`;
+  orari.forEach(o=>html+=`<div class="orario-btn ${filtroOrario===o?'disabled':''}" onclick="filtroOrario='${o}';render()">${o}</div>`);
+  html+=`</div>`;
 
   lista.forEach(c=>{
     if(filtroOrario && c.inizio!==filtroOrario) return;
-    const iscr = iscrizioni[c.id] || [];
-    const iscritto = iscr.includes(utente.id);
-    const pieno = iscr.length>=c.max;
-
-    html += `<div class="card">
+    const iscr = registrazioni[c.id]||[];
+    const iscritto = iscr.includes(utente.nome+" "+utente.cognome);
+    html+=`
+    <div class="card">
       <h3>${c.nome}</h3>
-      <p>${c.inizio}-${c.fine} | ${c.aula||''} | ${c.docente||''}</p>
-      ${iscritto
-        ? `<button onclick="annulla('${c.id}')">Annulla</button>`
-        : `<button ${pieno?'disabled':''} onclick="iscrivi('${c.id}')">Iscriviti</button>`}
+      <p>${c.giorno} ${c.inizio}-${c.fine}</p>
+      ${iscritto?
+        `<button onclick="annulla('${c.id}')">Annulla</button>`:
+        `<button onclick="iscrivi('${c.id}')">Iscriviti</button>`}
     </div>`;
   });
 
-  app.innerHTML = html;
+  app.innerHTML=html;
 }
 
-// 🔹 ISCRIZIONI
+function logout(){ utente=null; view="login"; render(); }
+
+/* ================= ISCRIZIONI ================= */
 function iscrivi(id){
-  firebase.database().ref(`iscrizioni/${id}/${utente.id}`).set(true);
+  const key = utente.nome+" "+utente.cognome;
+  db.ref("registrazioni/"+id).once("value", s=>{
+    const arr=s.val()||[];
+    if(!arr.includes(key)) arr.push(key);
+    db.ref("registrazioni/"+id).set(arr);
+  });
 }
 function annulla(id){
-  firebase.database().ref(`iscrizioni/${id}/${utente.id}`).remove();
+  const key = utente.nome+" "+utente.cognome;
+  const arr=(registrazioni[id]||[]).filter(x=>x!==key);
+  db.ref("registrazioni/"+id).set(arr);
 }
 
-// 🔹 ADMIN
+/* ================= ADMIN ================= */
 function checkAdmin(){
   const p = prompt("Password admin");
-  if(p===ADMIN_PASSWORD) renderAdmin();
+  if(p===ADMIN_PASSWORD){ view="admin"; render(); }
   else alert("Password errata");
 }
 
 function renderAdmin(){
-  let html = `<h2>Area Admin</h2>
-  <button onclick="render()">Torna</button>
+  let html=`<h2>Area Admin</h2>
+  <button onclick="view='home';render()">Torna</button><br><br>
 
   <div class="card">
-    <h3>Aggiungi Studente</h3>
-    <input id="sn" placeholder="Nome">
-    <input id="sc" placeholder="Cognome">
-    <input id="sl" placeholder="Classe">
-    <input id="sp" placeholder="Password">
-    <button onclick="addStudente()">Aggiungi</button>
+  <h3>Giorno visibile</h3>
+  <select id="giorno">
+    <option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option>
+  </select>
+  <button onclick="db.ref('giornoStudente').set(giorno.value)">Imposta</button>
   </div>
 
   <div class="card">
-    <h3>Aggiungi Corso</h3>
-    <input id="cn" placeholder="Nome">
-    <input id="ci" placeholder="Inizio (08:00)">
-    <input id="cf" placeholder="Fine (09:00)">
-    <input id="cm" placeholder="Max">
-    <input id="ca" placeholder="Aula">
-    <input id="cd" placeholder="Docente">
-    <button onclick="addCorso()">Aggiungi</button>
+  <h3>Aggiungi Studente</h3>
+  <input id="sn" placeholder="Nome">
+  <input id="sc" placeholder="Cognome">
+  <input id="sl" placeholder="Classe">
+  <input id="sp" placeholder="Password">
+  <button onclick="addStudente()">Aggiungi</button>
+  <input type="file" id="file" accept=".csv,.txt">
+  <button onclick="upload()">Carica file</button>
+  </div>
+
+  <div class="card">
+  <h3>Aggiungi Corso</h3>
+  <input id="cn" placeholder="Nome">
+  <input id="ci" placeholder="Inizio">
+  <input id="cf" placeholder="Fine">
+  <select id="cg"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
+  <button onclick="addCorso()">Aggiungi</button>
+  </div>
+
+  <div class="card">
+  <h3>Ricerca Studente</h3>
+  <input id="rs" placeholder="Nome o cognome">
+  <button onclick="cerca()">Cerca</button>
+  <div id="res"></div>
   </div>`;
 
-  app.innerHTML = html;
+  app.innerHTML=html;
 }
 
 function addStudente(){
-  const ref = firebase.database().ref("studenti").push();
-  ref.set({ nome:sn.value, cognome:sc.value, classe:sl.value, password:sp.value });
+  const id=Date.now();
+  db.ref("studenti/"+id).set({
+    nome:sn.value, cognome:sc.value, classe:sl.value, password:sp.value
+  });
+}
+
+function upload(){
+  const r=new FileReader();
+  r.onload=e=>{
+    e.target.result.split("\n").forEach(l=>{
+      const [n,c,cl,p]=l.split(",");
+      if(n&&c&&cl&&p)
+        db.ref("studenti/"+Date.now()+Math.random()).set({
+          nome:n.trim(), cognome:c.trim(), classe:cl.trim(), password:p.trim()
+        });
+    });
+  };
+  r.readAsText(file.files[0]);
 }
 
 function addCorso(){
-  const ref = firebase.database().ref("corsi").push();
-  ref.set({ id:ref.key, nome:cn.value, inizio:ci.value, fine:cf.value, max:+cm.value, aula:ca.value, docente:cd.value });
+  const id=Date.now();
+  db.ref("corsi/"+id).set({
+    id, nome:cn.value, inizio:ci.value, fine:cf.value, giorno:cg.value
+  });
 }
 
-// 🔹 RENDER
-function render(){
-  if(!utente) renderLogin();
-  else renderHome();
+function cerca(){
+  let out="";
+  Object.values(registrazioni).forEach((arr,i)=>{
+    arr.forEach(n=>{
+      if(n.toLowerCase().includes(rs.value.toLowerCase()))
+        out+=`<p>${n}</p>`;
+    });
+  });
+  res.innerHTML=out||"Nessun risultato";
 }
+
 render();
 </script>
-
 </body>
 </html>
