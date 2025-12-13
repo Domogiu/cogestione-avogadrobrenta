@@ -80,14 +80,14 @@ function renderLogin(){
 }
 
 function login(){
-  const nome = nome.value.trim().toLowerCase();
-  const cognome = cognome.value.trim().toLowerCase();
-  const pass = password.value.trim();
+  const nomeVal = nome.value.trim().toLowerCase();
+  const cognomeVal = cognome.value.trim().toLowerCase();
+  const passVal = password.value.trim();
 
   const found = Object.values(studenti)
-    .find(s => s.nome.toLowerCase()==nome && s.cognome.toLowerCase()==cognome);
+    .find(s => s.nome.toLowerCase()==nomeVal && s.cognome.toLowerCase()==cognomeVal);
 
-  if(!found || found.password!==pass) return alert("Credenziali errate");
+  if(!found || found.password!==passVal) return alert("Credenziali errate");
   utente = found;
   view="home"; render();
 }
@@ -114,7 +114,8 @@ function renderHome(){
     html+=`
     <div class="card">
       <h3>${c.nome}</h3>
-      <p>${c.giorno} ${c.inizio}-${c.fine}</p>
+      <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'}</p>
+      <p>${c.descrizione || ''}</p>
       ${iscritto?
         `<button onclick="annulla('${c.id}')">Annulla</button>`:
         `<button onclick="iscrivi('${c.id}')">Iscriviti</button>`}
@@ -169,6 +170,7 @@ function renderAdmin(){
   <button onclick="addStudente()">Aggiungi</button>
   <input type="file" id="file" accept=".csv,.txt">
   <button onclick="upload()">Carica file</button>
+  <ul id="studentList"></ul>
   </div>
 
   <div class="card">
@@ -176,8 +178,12 @@ function renderAdmin(){
   <input id="cn" placeholder="Nome">
   <input id="ci" placeholder="Inizio">
   <input id="cf" placeholder="Fine">
+  <input id="ca" placeholder="Aula">
+  <input id="cd" placeholder="Docente">
+  <input id="cdesc" placeholder="Descrizione">
   <select id="cg"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
   <button onclick="addCorso()">Aggiungi</button>
+  <ul id="courseList"></ul>
   </div>
 
   <div class="card">
@@ -188,13 +194,16 @@ function renderAdmin(){
   </div>`;
 
   app.innerHTML=html;
+  renderStudentList();
+  renderCourseList();
 }
 
+/* ================= STUDENTI ================= */
 function addStudente(){
   const id=Date.now();
-  db.ref("studenti/"+id).set({
-    nome:sn.value, cognome:sc.value, classe:sl.value, password:sp.value
-  });
+  const obj={nome:sn.value, cognome:sc.value, classe:sl.value, password:sp.value};
+  db.ref("studenti/"+id).set(obj);
+  sn.value=sc.value=sl.value=sp.value="";
 }
 
 function upload(){
@@ -211,25 +220,90 @@ function upload(){
   r.readAsText(file.files[0]);
 }
 
-function addCorso(){
-  const id=Date.now();
-  db.ref("corsi/"+id).set({
-    id, nome:cn.value, inizio:ci.value, fine:cf.value, giorno:cg.value
+function renderStudentList(){
+  const ul=document.getElementById("studentList");
+  ul.innerHTML="";
+  Object.entries(studenti).forEach(([id,s])=>{
+    const li=document.createElement("li");
+    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) 
+    <button onclick="modStudent('${id}')">Modifica</button>`;
+    ul.appendChild(li);
   });
 }
 
+function modStudent(id){
+  const s=studenti[id];
+  const nome=prompt("Nome",s.nome);
+  const cognome=prompt("Cognome",s.cognome);
+  const classe=prompt("Classe",s.classe);
+  const password=prompt("Password",s.password);
+  db.ref("studenti/"+id).set({nome,nome?nome:s.nome, cognome:cognome?cognome:s.cognome, classe:classe?classe:s.classe, password:password?password:s.password});
+}
+
+/* ================= CORSI ================= */
+function addCorso(){
+  const id=Date.now();
+  const obj={
+    id,
+    nome:cn.value,
+    inizio:ci.value,
+    fine:cf.value,
+    aula:ca.value,
+    docente:cd.value,
+    descrizione:cdesc.value,
+    giorno:cg.value
+  };
+  db.ref("corsi/"+id).set(obj);
+  cn.value=ci.value=cf.value=ca.value=cd.value=cdesc.value="";
+}
+
+function renderCourseList(){
+  const ul=document.getElementById("courseList");
+  ul.innerHTML="";
+  Object.entries(corsi).forEach(([id,c])=>{
+    const iscr = registrazioni[c.id]||[];
+    const li=document.createElement("li");
+    li.innerHTML=`${c.nome} (${c.giorno} ${c.inizio}-${c.fine}) | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'} | Iscritti: ${iscr.join(", ") || 'Nessuno'} 
+    <button onclick="modCourse('${id}')">Modifica</button>`;
+    ul.appendChild(li);
+  });
+}
+
+function modCourse(id){
+  const c=corsi[id];
+  const nome=prompt("Nome",c.nome);
+  const inizio=prompt("Inizio",c.inizio);
+  const fine=prompt("Fine",c.fine);
+  const aula=prompt("Aula",c.aula);
+  const docente=prompt("Docente",c.docente);
+  const desc=prompt("Descrizione",c.descrizione);
+  const giorno=prompt("Giorno",c.giorno);
+  db.ref("corsi/"+id).set({
+    id,
+    nome:nome?nome:c.nome,
+    inizio:inizio?inizio:c.inizio,
+    fine:fine?fine:c.fine,
+    aula:aula?aula:c.aula,
+    docente:docente?docente:c.docente,
+    descrizione:desc?desc:c.descrizione,
+    giorno:giorno?giorno:c.giorno
+  });
+}
+
+/* ================= RICERCA ================= */
 function cerca(){
   let out="";
-  Object.values(registrazioni).forEach((arr,i)=>{
+  Object.entries(registrazioni).forEach(([id,arr])=>{
     arr.forEach(n=>{
-      if(n.toLowerCase().includes(rs.value.toLowerCase()))
-        out+=`<p>${n}</p>`;
+      if(n.toLowerCase().includes(rs.value.toLowerCase())){
+        const c=corsi[id];
+        if(c) out+=`<p>${n} → ${c.nome} (${c.giorno} ${c.inizio}-${c.fine})</p>`;
+      }
     });
   });
   res.innerHTML=out||"Nessun risultato";
 }
 
-render();
 </script>
 </body>
 </html>
