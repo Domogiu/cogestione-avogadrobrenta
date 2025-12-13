@@ -16,7 +16,6 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 .floating-admin { position:fixed; bottom:20px; right:20px; }
 .course-disabled { opacity:0.4; pointer-events:none; }
 </style>
-
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
@@ -26,7 +25,7 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 <button class="floating-admin" onclick="checkAdmin()">Admin</button>
 
 <script>
-/* ================= CONFIG ================= */
+/* CONFIG FIREBASE */
 const ADMIN_PASSWORD = "avogadro@2025";
 const firebaseConfig = {
   apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
@@ -34,21 +33,14 @@ const firebaseConfig = {
   databaseURL: "https://cogestione-liceo-avogadro-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "cogestione-liceo-avogadro",
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* ================= STATE ================= */
-let studenti = {};
-let corsi = {};
-let registrazioni = {};
-let giornoStudente = "Giorno 1";
-let utente = null;
-let view = "login";
-let filtroOrario = null;
+/* STATE */
+let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
 
-/* ================= REALTIME ================= */
-db.ref().on("value", snap => {
+/* REALTIME DATABASE LISTENER */
+db.ref().on("value", snap=>{
   const d = snap.val() || {};
   studenti = d.studenti || {};
   corsi = d.corsi || {};
@@ -57,275 +49,215 @@ db.ref().on("value", snap => {
   render();
 });
 
-/* ================= RENDER ================= */
+/* RENDER PRINCIPALE */
 function render(){
   if(view==="login") renderLogin();
-  if(view==="home") renderHome();
-  if(view==="admin") renderAdmin();
+  else if(view==="home") renderHome();
+  else if(view==="admin") renderAdmin();
 }
 
-/* ================= LOGIN ================= */
+/* LOGIN STUDENTE */
 function renderLogin(){
   document.getElementById("app").innerHTML = `
-  <div class="card">
-    <h2>Login Studente</h2>
-    <input id="nome" placeholder="Nome">
-    <input id="cognome" placeholder="Cognome">
-    <input id="password" type="password" placeholder="Password">
-    <button onclick="login()">Entra</button>
-  </div>`;
+    <div class="card">
+      <h2>Login Studente</h2>
+      <input id="nome" placeholder="Nome">
+      <input id="cognome" placeholder="Cognome">
+      <input id="password" type="password" placeholder="Password">
+      <button onclick="login()">Entra</button>
+    </div>`;
 }
-
 function login(){
-  const nomeVal = document.getElementById("nome").value.trim().toLowerCase();
-  const cognomeVal = document.getElementById("cognome").value.trim().toLowerCase();
-  const passVal = document.getElementById("password").value.trim();
-  const found = Object.values(studenti).find(s => s.nome.toLowerCase()===nomeVal && s.cognome.toLowerCase()===cognomeVal);
-  if(!found || found.password!==passVal) return alert("Credenziali errate");
-  utente = found;
+  const n=document.getElementById("nome").value.trim().toLowerCase();
+  const c=document.getElementById("cognome").value.trim().toLowerCase();
+  const p=document.getElementById("password").value.trim();
+  const found=Object.entries(studenti).find(([id,s])=>s.nome.toLowerCase()===n && s.cognome.toLowerCase()===c);
+  if(!found || found[1].password!==p) return alert("Credenziali errate");
+  utente = {...found[1], id: found[0]};
   view="home"; render();
 }
 
-/* ================= HOME ================= */
+/* HOME STUDENTE */
 function renderHome(){
-  let html = `<h3>Ciao ${utente.nome} ${utente.cognome}</h3>
+  let html=`<h3>Ciao ${utente.nome} ${utente.cognome}</h3>
   <button onclick="logout()">Logout</button><br><br>`;
 
-  const lista = Object.values(corsi)
-    .filter(c=>c.giorno===giornoStudente)
-    .sort((a,b)=>a.inizio.localeCompare(b.inizio));
+  const lista=Object.entries(corsi)
+    .filter(([id,c])=>c.giorno===giornoStudente)
+    .sort((a,b)=>a[1].inizio.localeCompare(b[1].inizio));
 
-  const orari=[...new Set(lista.map(c=>c.inizio))];
+  const orari=[...new Set(lista.map(([id,c])=>c.inizio))];
   html+=`<div class="orario-menu">
-  <div class="orario-btn ${!filtroOrario?'disabled':''}" onclick="filtroOrario=null;render()">Tutti</div>`;
+    <div class="orario-btn ${!filtroOrario?'disabled':''}" onclick="filtroOrario=null;render()">Tutti</div>`;
   orari.forEach(o=>html+=`<div class="orario-btn ${filtroOrario===o?'disabled':''}" onclick="filtroOrario='${o}';render()">${o}</div>`);
   html+=`</div>`;
 
-  lista.forEach(c=>{
+  lista.forEach(([id,c])=>{
     if(filtroOrario && c.inizio!==filtroOrario) return;
-    const iscr = registrazioni[c.id]||[];
-    const iscritto = iscr.includes(utente.nome+" "+utente.cognome);
-    const pieno = iscr.length >= (c.max || Infinity);
-
-    // Sovrapposizione orari
-    let overlap = false;
+    const iscr=registrazioni[id]||[];
+    const iscritto=iscr.includes(utente.nome+" "+utente.cognome);
+    const pieno=iscr.length>=c.max;
+    let overlap=false;
     Object.entries(registrazioni).forEach(([cid,arr])=>{
       if(arr.includes(utente.nome+" "+utente.cognome)){
-        const cc = corsi[cid];
-        if(cc.giorno===c.giorno && !(c.fine<=cc.inizio || cc.fine<=c.inizio) && c.id!==cc.id){
-          overlap = true;
-        }
+        const cc=corsi[cid];
+        if(cc.giorno===c.giorno && !(c.fine<=cc.inizio || cc.fine<=c.inizio) && id!==cid) overlap=true;
       }
     });
-
     html+=`
-    <div class="card ${pieno && !iscritto || overlap ? 'course-disabled' : ''}">
+    <div class="card ${pieno&&!iscritto||overlap?'course-disabled':''}">
       <h3>${c.nome}</h3>
-      <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'}</p>
-      <p>${c.descrizione || ''}</p>
-      ${iscritto?
-        `<button onclick="annulla('${c.id}')">Annulla iscrizione</button>`:
-        `<button onclick="iscrivi('${c.id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`}
+      <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'}</p>
+      <p>${c.descrizione||''}</p>
+      ${iscritto?`<button onclick="annulla('${id}')">Annulla iscrizione</button>`:
+      `<button onclick="iscrivi('${id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`}
     </div>`;
   });
 
   document.getElementById("app").innerHTML = html;
 }
-
 function logout(){ utente=null; view="login"; render(); }
 
-/* ================= ISCRIZIONI ================= */
+/* ISCRIZIONI */
 function iscrivi(id){
-  const key = utente.nome+" "+utente.cognome;
-  const arr = registrazioni[id] || [];
-  // Controllo sovrapposizione
-  const corso = corsi[id];
+  const key=utente.nome+" "+utente.cognome;
+  const arr=registrazioni[id]||[];
+  const corso=corsi[id];
   for(const cid in registrazioni){
     if(registrazioni[cid].includes(key)){
-      const cc = corsi[cid];
+      const cc=corsi[cid];
       if(cc.giorno===corso.giorno && !(corso.fine<=cc.inizio || cc.fine<=corso.inizio)) return alert("Orario sovrapposto");
     }
   }
   if(arr.includes(key)) return;
-  if(arr.length >= corso.max) return alert("Posti esauriti");
-  arr.push(key);
-  db.ref("registrazioni/"+id).set(arr);
+  if(arr.length>=corso.max) return alert("Posti esauriti");
+  arr.push(key); db.ref("registrazioni/"+id).set(arr);
 }
-
 function annulla(id){
-  const key = utente.nome+" "+utente.cognome;
-  const arr = (registrazioni[id]||[]).filter(x=>x!==key);
+  const key=utente.nome+" "+utente.cognome;
+  const arr=(registrazioni[id]||[]).filter(x=>x!==key);
   db.ref("registrazioni/"+id).set(arr);
 }
 
-/* ================= ADMIN ================= */
+/* ADMIN */
 function checkAdmin(){
-  const p = prompt("Password admin");
+  const p=prompt("Password admin");
   if(p===ADMIN_PASSWORD){ view="admin"; render(); }
   else alert("Password errata");
 }
 
 function renderAdmin(){
   let html=`<h2>Area Admin</h2>
-  <button onclick="view='home';render()">Torna</button><br><br>
+  <button onclick="view='home';render()">Torna al menu</button><br><br>
 
   <div class="card">
-  <h3>Giorno visibile</h3>
-  <select id="giorno">
-    <option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option>
-  </select>
-  <button onclick="db.ref('giornoStudente').set(document.getElementById('giorno').value)">Imposta</button>
+  <h3>Giorno visibile agli studenti</h3>
+  <select id="giornoSelect"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
+  <button onclick="impostaGiorno()">Imposta</button>
   </div>
 
   <div class="card">
   <h3>Aggiungi Studente</h3>
-  <input id="sn" placeholder="Nome">
-  <input id="sc" placeholder="Cognome">
-  <input id="sl" placeholder="Classe">
-  <input id="sp" placeholder="Password">
+  <input id="sn" placeholder="Nome"><input id="sc" placeholder="Cognome">
+  <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
   <button onclick="addStudente()">Aggiungi</button>
-  <input type="file" id="file" accept=".csv,.txt">
-  <button onclick="upload()">Carica file</button>
-  <ul id="studentList"></ul>
-  </div>
+  <input type="file" id="file" accept=".csv,.txt"><button onclick="uploadStudent()">Carica file</button>
+  <ul id="studentList"></ul></div>
 
   <div class="card">
   <h3>Aggiungi Corso</h3>
-  <input id="cn" placeholder="Nome">
-  <input id="ci" placeholder="Inizio">
-  <input id="cf" placeholder="Fine">
-  <input id="ca" placeholder="Aula">
-  <input id="cd" placeholder="Docente">
-  <input id="cdesc" placeholder="Descrizione">
+  <input id="cn" placeholder="Nome"><input id="ci" placeholder="Inizio">
+  <input id="cf" placeholder="Fine"><input id="ca" placeholder="Aula">
+  <input id="cd" placeholder="Docente"><input id="cdesc" placeholder="Descrizione">
   <input id="cmax" placeholder="Max partecipanti">
   <select id="cg"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
   <button onclick="addCorso()">Aggiungi</button>
-  <ul id="courseList"></ul>
-  </div>
+  <ul id="courseList"></ul></div>
 
   <div class="card">
   <h3>Ricerca Studente</h3>
-  <input id="rs" placeholder="Nome o cognome">
-  <button onclick="cerca()">Cerca</button>
-  <div id="res"></div>
-  </div>`;
-
+  <input id="rs" placeholder="Nome o cognome"><button onclick="cercaStudente()">Cerca</button>
+  <div id="res"></div></div>`;
   document.getElementById("app").innerHTML = html;
-  document.getElementById("giorno").value = giornoStudente;
-  renderStudentList();
-  renderCourseList();
+  document.getElementById("giornoSelect").value = giornoStudente;
+  renderStudentList(); renderCourseList();
 }
 
-/* ================= STUDENTI ================= */
+/* FUNZIONI ADMIN */
+function impostaGiorno(){ db.ref("giornoStudente").set(document.getElementById("giornoSelect").value); }
+
 function addStudente(){
-  const snVal=document.getElementById("sn").value.trim();
-  const scVal=document.getElementById("sc").value.trim();
-  const slVal=document.getElementById("sl").value.trim();
-  const spVal=document.getElementById("sp").value.trim();
-  if(!snVal || !scVal || !slVal || !spVal) return alert("Completa tutti i campi");
-  const id = Date.now();
-  db.ref("studenti/"+id).set({nome:snVal,cognome:scVal,classe:slVal,password:spVal});
+  const n=document.getElementById("sn").value.trim();
+  const c=document.getElementById("sc").value.trim();
+  const l=document.getElementById("sl").value.trim();
+  const p=document.getElementById("sp").value.trim();
+  if(!n||!c||!l||!p) return alert("Completa tutti i campi");
+  const id=Date.now(); db.ref("studenti/"+id).set({nome:n,cognome:c,classe:l,password:p});
   document.getElementById("sn").value=document.getElementById("sc").value=document.getElementById("sl").value=document.getElementById("sp").value="";
 }
-
-function upload(){
-  const fileInput=document.getElementById("file");
-  if(!fileInput.files[0]) return alert("Seleziona un file");
+function uploadStudent(){
+  const f=document.getElementById("file");
+  if(!f.files[0]) return alert("Seleziona file");
   const r=new FileReader();
-  r.onload=e=>{
-    e.target.result.split("\n").forEach(l=>{
-      const [n,c,cl,p]=l.split(",");
-      if(n&&c&&cl&&p)
-        db.ref("studenti/"+Date.now()+Math.random()).set({
-          nome:n.trim(), cognome:c.trim(), classe:cl.trim(), password:p.trim()
-        });
-    });
-  };
-  r.readAsText(fileInput.files[0]);
+  r.onload=e=>{ e.target.result.split("\n").forEach(l=>{
+    const [n,c,lcl,p]=l.split(",");
+    if(n&&c&&lcl&&p) db.ref("studenti/"+Date.now()+Math.random()).set({nome:n.trim(),cognome:c.trim(),classe:lcl.trim(),password:p.trim()});
+  }); };
+  r.readAsText(f.files[0]);
 }
-
 function renderStudentList(){
-  const ul=document.getElementById("studentList");
-  ul.innerHTML="";
+  const ul=document.getElementById("studentList"); ul.innerHTML="";
   Object.entries(studenti).forEach(([id,s])=>{
     const li=document.createElement("li");
     li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) <button onclick="modStudent('${id}')">Modifica</button>`;
     ul.appendChild(li);
   });
 }
-
 function modStudent(id){
   const s=studenti[id];
-  const nome=prompt("Nome",s.nome);
-  const cognome=prompt("Cognome",s.cognome);
-  const classe=prompt("Classe",s.classe);
-  const password=prompt("Password",s.password);
-  db.ref("studenti/"+id).set({nome:nome||s.nome,cognome:cognome||s.cognome,classe:classe||s.classe,password:password||s.password});
+  const n=prompt("Nome",s.nome); const c=prompt("Cognome",s.cognome);
+  const l=prompt("Classe",s.classe); const p=prompt("Password",s.password);
+  db.ref("studenti/"+id).set({nome:n||s.nome,cognome:c||s.cognome,classe:l||s.classe,password:p||s.password});
 }
 
-/* ================= CORSI ================= */
 function addCorso(){
-  const cnVal=document.getElementById("cn").value.trim();
-  const ciVal=document.getElementById("ci").value.trim();
-  const cfVal=document.getElementById("cf").value.trim();
-  const caVal=document.getElementById("ca").value.trim();
-  const cdVal=document.getElementById("cd").value.trim();
-  const cdescVal=document.getElementById("cdesc").value.trim();
-  const cmaxVal=parseInt(document.getElementById("cmax").value);
-  const cgVal=document.getElementById("cg").value;
-  if(!cnVal || !ciVal || !cfVal || !cmaxVal) return alert("Compila almeno nome, orari e max partecipanti");
-  const id = Date.now();
-  db.ref("corsi/"+id).set({id,nome:cnVal,inizio:ciVal,fine:cfVal,aula:caVal,docente:cdVal,descrizione:cdescVal,max:cmaxVal,giorno:cgVal});
+  const cn=document.getElementById("cn").value.trim(); const ci=document.getElementById("ci").value.trim();
+  const cf=document.getElementById("cf").value.trim(); const ca=document.getElementById("ca").value.trim();
+  const cd=document.getElementById("cd").value.trim(); const cdesc=document.getElementById("cdesc").value.trim();
+  const cmax=parseInt(document.getElementById("cmax").value); const cg=document.getElementById("cg").value;
+  if(!cn||!ci||!cf||!cmax) return alert("Compila nome, orari e max");
+  const id=Date.now(); db.ref("corsi/"+id).set({id,nome:cn,inizio:ci,fine:cf,aula:ca,docente:cd,descrizione:cdesc,max:cmax,giorno:cg});
   document.getElementById("cn").value=document.getElementById("ci").value=document.getElementById("cf").value=document.getElementById("ca").value=document.getElementById("cd").value=document.getElementById("cdesc").value=document.getElementById("cmax").value="";
 }
-
 function renderCourseList(){
-  const ul=document.getElementById("courseList");
-  ul.innerHTML="";
+  const ul=document.getElementById("courseList"); ul.innerHTML="";
   Object.entries(corsi).forEach(([id,c])=>{
-    const iscr = registrazioni[c.id]||[];
+    const iscr=registrazioni[c.id]||[];
     const li=document.createElement("li");
-    li.innerHTML=`${c.nome} (${c.giorno} ${c.inizio}-${c.fine}) | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'} | Max: ${c.max||'∞'} | Iscritti: ${iscr.join(", ")||'Nessuno'} 
+    li.innerHTML=`${c.nome} (${c.giorno} ${c.inizio}-${c.fine}) | Aula:${c.aula||'N/A'} | Docente:${c.docente||'N/A'} | Max:${c.max||'∞'} | Iscritti: ${iscr.join(", ")||'Nessuno'} 
     <button onclick="modCourse('${id}')">Modifica</button>`;
     ul.appendChild(li);
   });
 }
-
 function modCourse(id){
   const c=corsi[id];
-  const nome=prompt("Nome",c.nome);
-  const inizio=prompt("Inizio",c.inizio);
-  const fine=prompt("Fine",c.fine);
-  const aula=prompt("Aula",c.aula);
-  const docente=prompt("Docente",c.docente);
-  const desc=prompt("Descrizione",c.descrizione);
-  const max=parseInt(prompt("Max partecipanti",c.max));
-  const giorno=prompt("Giorno",c.giorno);
-  db.ref("corsi/"+id).set({
-    id,
-    nome:nome||c.nome,
-    inizio:inizio||c.inizio,
-    fine:fine||c.fine,
-    aula:aula||c.aula,
-    docente:docente||c.docente,
-    descrizione:desc||c.descrizione,
-    max:max||c.max,
-    giorno:giorno||c.giorno
-  });
+  const n=prompt("Nome",c.nome); const ci=prompt("Inizio",c.inizio);
+  const cf=prompt("Fine",c.fine); const ca=prompt("Aula",c.aula);
+  const cd=prompt("Docente",c.docente); const desc=prompt("Descrizione",c.descrizione);
+  const max=parseInt(prompt("Max partecipanti",c.max)); const g=prompt("Giorno",c.giorno);
+  db.ref("corsi/"+id).set({id,nome:n||c.nome,inizio:ci||c.inizio,fine:cf||c.fine,aula:ca||c.aula,docente:cd||c.docente,descrizione:desc||c.descrizione,max:max||c.max,giorno:g||c.giorno});
 }
 
-/* ================= RICERCA ================= */
-function cerca(){
-  let out="";
+/* RICERCA */
+function cercaStudente(){
+  const val=document.getElementById("rs").value.toLowerCase(); let out="";
   Object.entries(registrazioni).forEach(([id,arr])=>{
     arr.forEach(n=>{
-      if(n.toLowerCase().includes(document.getElementById("rs").value.toLowerCase())){
-        const c=corsi[id];
-        if(c) out+=`<p>${n} → ${c.nome} (${c.giorno} ${c.inizio}-${c.fine})</p>`;
+      if(n.toLowerCase().includes(val)){
+        const c=corsi[id]; if(c) out+=`<p>${n} → ${c.nome} (${c.giorno} ${c.inizio}-${c.fine})</p>`;
       }
     });
-  });
-  document.getElementById("res").innerHTML = out||"Nessun risultato";
+  }); document.getElementById("res").innerHTML=out||"Nessun risultato";
 }
 </script>
 </body>
