@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cogestione Studentesca</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f4; }
+  h1 { text-align: center; }
+  .card { background: white; padding: 15px; margin-bottom: 12px; border-radius: 8px; }
+  button { padding: 8px 12px; border: none; cursor: pointer; border-radius: 6px; background: #007bff; color: white; }
+  button:disabled { background: gray; cursor: not-allowed; }
+  input, select { padding: 8px; width: 100%; margin: 6px 0; box-sizing: border-box; }
+  .course-container { opacity: 1; transition: opacity 0.3s; }
+  .course-container.disabled { opacity: 0.4; }
+  .orario-menu, .giorno-menu { margin: 10px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+  .orario-btn, .giorno-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid #007bff; cursor: pointer; background:white; }
+  .disabled { opacity: 0.5; pointer-events: none; }
+  .floating-admin { position:fixed; bottom:20px; right:20px; padding:10px; border-radius:8px; }
+</style>
+</head>
+<body>
+<h1>Cogestione - Accesso Studenti</h1>
+<div id="app"></div>
+<script>
+const studentiValidi = JSON.parse(localStorage.getItem('studentiValidi')||'[]');
+const corsi = JSON.parse(localStorage.getItem('corsi')||'[]');
+let registrazioni = JSON.parse(localStorage.getItem("registrazioni") || "{}");
+let utente = JSON.parse(localStorage.getItem("utente"));
+let adminCodes = JSON.parse(localStorage.getItem("adminCodes") || '[]');
+if(!adminCodes.includes('avogadro@2025')) { adminCodes.push('avogadro@2025'); localStorage.setItem('adminCodes', JSON.stringify(adminCodes)); }
+let filtroOrario = null;
+let giornoStudente = localStorage.getItem('giornoStudente') || 'Giorno 1';
+
+function saveState(){
+  localStorage.setItem('studentiValidi', JSON.stringify(studentiValidi));
+  localStorage.setItem('corsi', JSON.stringify(corsi));
+  localStorage.setItem('registrazioni', JSON.stringify(registrazioni));
+  localStorage.setItem('adminCodes', JSON.stringify(adminCodes));
+  localStorage.setItem('giornoStudente', giornoStudente);
+}
+
+function findStudenteByNomeCognome(nome, cognome){
+  return studentiValidi.find(s => s.nome.toLowerCase() === nome.toLowerCase() && s.cognome.toLowerCase() === cognome.toLowerCase());
+}
+
+function orariSovrapposti(c1, c2){ return !(c1.fine <= c2.inizio || c2.fine <= c1.inizio); }
+
+function renderLogin(){
+  document.getElementById("app").innerHTML = `
+    <div class='card'>
+      <h2>Login</h2>
+      <p>Inserisci Nome, Cognome e Password</p>
+      <input id='nome' placeholder='Nome'>
+      <input id='cognome' placeholder='Cognome'>
+      <input id='password' placeholder='Password' type='password'>
+      <button onclick='handleLogin()'>Entra</button>
+    </div>`;
+}
+
+function handleLogin(){
+  const nome = document.getElementById('nome').value.trim();
+  const cognome = document.getElementById('cognome').value.trim();
+  const password = document.getElementById('password').value.trim();
+  if(!nome || !cognome || !password) return alert('Compila tutti i campi');
+  const found = findStudenteByNomeCognome(nome,cognome);
+  if(!found) return alert('Studente non trovato');
+  if(found.password!==password) return alert('Password errata');
+  utente = found; found.logged = true; localStorage.setItem('utente',JSON.stringify(utente));
+  saveState(); renderHome();
+}
+
+function renderHome(){
+  if(!utente) return renderLogin();
+  let html = `<h2>Benvenuto, ${utente.nome} ${utente.cognome} (${utente.classe})</h2><button onclick='logout()'>Logout</button>`;
+
+  const corsiGiorno = corsi.filter(c => c.giorno === giornoStudente);
+  const orari = [...new Set(corsiGiorno.map(c=>c.inizio))].sort();
+  html += `<div class='orario-menu'>`;
+  html += `<div class='orario-btn ${filtroOrario===null?'disabled':''}' onclick='filtroOrario=null; renderHome()'>Tutti i corsi</div>`;
+  orari.forEach(o => html += `<div class='orario-btn ${filtroOrario===o?'disabled':''}' onclick='filtroOrario="${o}"; renderHome()'>${o}</div>`);
+  html += `</div><br>`;
+
+  corsiGiorno.forEach(c => {
+    if(filtroOrario && c.inizio!==filtroOrario) return;
+    const iscritti = registrazioni[c.id]||[];
+    const pieno = iscritti.length >= c.max;
+    const iscritto = iscritti.includes(utente.nome+' '+utente.cognome);
+    let disabledByOverlap=false;
+    for(let cid in registrazioni){
+      if(registrazioni[cid].includes(utente.nome+' '+utente.cognome)){
+        const c2=corsi.find(co=>co.id==cid);
+        if(c.giorno === c2.giorno && orariSovrapposti(c,c2) && !iscritto) disabledByOverlap=true;
+      }
+    }
+    html += `<div class='card course-container ${disabledByOverlap?'disabled':''}'>
+      <h3>${c.nome}</h3>
+      <p>${c.giorno} | ${c.inizio}-${c.fine} | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'}</p>
+      <p>${c.descrizione||''}</p>
+      ${iscritto?'<button onclick="annullaIscrizione('+c.id+')">Annulla iscrizione</button>':`<button ${pieno||disabledByOverlap?'disabled':''} onclick='iscrivi(${c.id})'>Iscriviti</button>`}`;
+    if(pieno && !iscritto) html += `<div class='course-full'>Corso pieno!</div>`;
+    html += `</div>`;
+  });
+
+  document.getElementById('app').innerHTML = html;
+}
+
+function logout(){utente=null; localStorage.removeItem('utente'); renderLogin();}
+function iscrivi(id){
+  const corso = corsi.find(c=>c.id===id);
+  if(!registrazioni[id]) registrazioni[id]=[];
+  if(registrazioni[id].includes(utente.nome+' '+utente.cognome)) return;
+  for(let cid in registrazioni){
+    if(registrazioni[cid].includes(utente.nome+' '+utente.cognome)){
+      const c2=corsi.find(co=>co.id==cid);
+      if(c.giorno === c2.giorno && orariSovrapposti(corso,c2)) return alert('Orario sovrapposto');
+    }
+  }
+  if(registrazioni[id].length>=corso.max) return alert('Posti esauriti');
+  registrazioni[id].push(utente.nome+' '+utente.cognome); saveState(); renderHome();
+}
+function annullaIscrizione(id){
+  if(!registrazioni[id]) return;
+  registrazioni[id] = registrazioni[id].filter(e => e!==utente.nome+' '+utente.cognome); saveState(); renderHome();
+}
+
+function checkAdmin(){
+  const code = prompt('Inserisci codice admin');
+  if(code && adminCodes.includes(code)) renderAdminPanel();
+  else alert('Codice admin errato');
+}
+
+function renderAdminPanel(){
+  let html = `<h2>Area Admin</h2><button onclick='renderHome()'>Torna al sito</button><br><br>`;
+  html += `<div class='card'><h3>Giorno visibile agli studenti</h3>
+<select id='giornoSelect'>
+<option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
+<button onclick='setGiornoStudente()'>Imposta</button></div>`;
+
+  html += `<div class='card'><h3>Gestione Studenti</h3>
+<input id='studNome' placeholder='Nome'><input id='studCognome' placeholder='Cognome'><input id='studClasse' placeholder='Classe'><input id='studPassword' placeholder='Password'>
+<input type='file' id='studFile' accept='.csv,.txt'><button onclick='uploadStudentFile()'>Carica File</button>
+<button onclick='addStudente()'>Aggiungi Studente</button>
+<ul>${studentiValidi.map((s,i)=>`<li>${s.nome} ${s.cognome} (${s.classe}) - <button onclick='modificaStudente(${i})'>Modifica</button></li>`).join('')}</ul>
+<p>Ricerca iscrizioni: <input id='ricercaStudente' placeholder='Nome studente'><button onclick='cercaIscrizioni()'>Cerca</button></p>
+<div id='risultatoRicerca'></div>
+</div>`;
+
+  html += `<div class='card'><h3>Gestione Corsi</h3>
+<input id='corsoNome' placeholder='Nome corso'><input id='corsoOraInizio' placeholder='Ora inizio'><input id='corsoOraFine' placeholder='Ora fine'><input id='corsoMax' placeholder='Max partecipanti'>
+<input id='corsoAula' placeholder='Aula'><input id='corsoDocente' placeholder='Docente'><input id='corsoDescrizione' placeholder='Descrizione'>
+<select id='corsoGiorno'><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
+<button onclick='addCorso()'>Aggiungi Corso</button>
+<ul>${corsi.map((c,i)=>`<li>${c.nome} (${c.giorno} ${c.inizio}-${c.fine}) - Iscritti: ${registrazioni[c.id]?registrazioni[c.id].length:0} - ${registrazioni[c.id]?registrazioni[c.id].join(', '):'Nessuno'} <button onclick='modificaCorso(${i})'>Modifica</button></li>`).join('')}</ul>
+</div>`;
+
+  document.getElementById('app').innerHTML = html;
+}
+
+function setGiornoStudente(){ giornoStudente=document.getElementById('giornoSelect').value; saveState(); renderAdminPanel(); }
+function addStudente(){ const nome=document.getElementById('studNome').value.trim(); const cognome=document.getElementById('studCognome').value.trim(); const classe=document.getElementById('studClasse').value.trim(); const password=document.getElementById('studPassword').value.trim(); if(!nome||!cognome||!classe||!password)return alert('Completa tutti i campi'); if(studentiValidi.find(s=>s.nome.toLowerCase()===nome.toLowerCase() && s.cognome.toLowerCase()===cognome.toLowerCase()))return alert('Studente già presente'); studentiValidi.push({nome,cognome,classe,password,logged:false}); saveState(); renderAdminPanel();}
+function uploadStudentFile(){ const file=document.getElementById('studFile').files[0]; if(!file)return alert('Seleziona un file'); const reader=new FileReader(); reader.onload=function(e){ const lines=e.target.result.split('\n'); lines.forEach(line=>{ const parts=line.split(','); if(parts.length>=4){ const [nome,cognome,classe,password]=parts.map(p=>p.trim()); if(!studentiValidi.find(s=>s.nome===nome && s.cognome===cognome)) studentiValidi.push({nome,cognome,classe,password,logged:false}); } }); saveState(); renderAdminPanel(); }; reader.readAsText(file);}
+function addCorso(){ const nome=document.getElementById('corsoNome').value.trim(); const inizio=document.getElementById('corsoOraInizio').value.trim(); const fine=document.getElementById('corsoOraFine').value.trim(); const max=parseInt(document.getElementById('corsoMax').value); const aula=document.getElementById('corsoAula').value.trim(); const docente=document.getElementById('corsoDocente').value.trim(); const descrizione=document.getElementById('corsoDescrizione').value.trim(); const giorno=document.getElementById('corsoGiorno').value; if(!nome||!inizio||!fine||!max)return alert('Compila almeno nome, orario e max'); corsi.push({id:Date.now(),nome,inizio,fine,max,aula,docente,descrizione,giorno}); saveState(); renderAdminPanel();}
+function modificaCorso(i){ const c=corsi[i]; const nuovoNome=prompt('Nome corso',c.nome); if(nuovoNome)c.nome=nuovoNome; const nuovoInizio=prompt('Ora inizio',c.inizio); if(nuovoInizio)c.inizio=nuovoInizio; const nuovoFine=prompt('Ora fine',c.fine); if(nuovoFine)c.fine=nuovoFine; const nuovoMax=prompt('Max partecipanti',c.max); if(nuovoMax)c.max=parseInt(nuovoMax); const nuovaAula=prompt('Aula',c.aula); if(nuovaAula)c.aula=nuovaAula; const nuovoDocente=prompt('Docente',c.docente); if(nuovoDocente)c.docente=nuovoDocente; const nuovaDescrizione=prompt('Descrizione',c.descrizione); if(nuovaDescrizione)c.descrizione=nuovaDescrizione; const nuovoGiorno=prompt('Giorno (Giorno 1, Giorno 2, Giorno 3)',c.giorno); if(nuovoGiorno)c.giorno=nuovoGiorno; saveState(); renderAdminPanel();}
+function modificaStudente(i){ const s=studentiValidi[i]; const nuovoNome=prompt('Nome',s.nome); if(nuovoNome)s.nome=nuovoNome; const nuovoCognome=prompt('Cognome',s.cognome); if(nuovoCognome)s.cognome=nuovoCognome; const nuovaPassword=prompt('Password',s.password); if(nuovaPassword)s.password=nuovaPassword; saveState(); renderAdminPanel();}
+function cercaIscrizioni(){ const nome=document.getElementById('ricercaStudente').value.trim().toLowerCase(); if(!nome)return alert('Inserisci un nome'); let risultati=''; for(let id in registrazioni){ registrazioni[id].forEach(s=>{ if(s.toLowerCase().includes(nome)){ const corso=corsi.find(c=>c.id==id); risultati+=`<p>${s} iscritto a ${corso.nome} (${corso.giorno} ${corso.inizio}-${corso.fine})</p>`; } }); } document.getElementById('risultatoRicerca').innerHTML=risultati||'<p>Nessuna iscrizione trovata</p>'}
+
+if(utente) renderHome(); else renderLogin();
+</script>
+<button class='floating-admin' onclick='checkAdmin()'>Admin</button>
+</body>
+</html>
