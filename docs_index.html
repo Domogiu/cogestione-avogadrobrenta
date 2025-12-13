@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="Piattaforma semplice per la gestione delle iscrizioni ai corsi durante gli eventi - area studenti e pannello amministrativo." />
+  <title>Cogestione Studentesca — Accesso e Iscrizioni</title>
+  <style>
+    :root{
+      --bg:#f6f8fb;
+      --card:#ffffff;
+      --primary:#1e88e5;
+      --accent:#0d6efd;
+      --muted:#6b7280;
+      --danger:#d32f2f;
+      --radius:10px;
+      --max-width:980px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      background:var(--bg);
+      color:#0b2545;
+      padding:24px;
+      display:flex;
+      justify-content:center;
+    }
+    .container{width:100%;max-width:var(--max-width);}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    header h1{font-size:1.25rem;margin:0}
+    .card{
+      background:var(--card);
+      padding:16px;
+      border-radius:var(--radius);
+      box-shadow:0 1px 4px rgba(12,24,40,0.06);
+      margin-bottom:12px;
+    }
+    .grid{display:grid;gap:12px;}
+    .two-col{grid-template-columns:1fr 320px}
+    .stack{display:flex;flex-direction:column;gap:8px}
+    label{font-size:0.9rem;color:var(--muted)}
+    input[type="text"], input[type="password"], select, input[type="number"]{
+      padding:8px 10px;border-radius:8px;border:1px solid #e6eef8;background:#fbfdff;
+    }
+    button{
+      padding:8px 12px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;
+    }
+    button.ghost{background:transparent;color:var(--primary);border:1px solid rgba(30,136,229,0.15)}
+    button.warn{background:var(--danger)}
+    .course{
+      border-radius:8px;padding:12px;border:1px solid #eef6ff;background:linear-gradient(180deg,#ffffff, #fbfdff);
+      display:flex;flex-direction:column;gap:6px;
+    }
+    .course .meta{font-size:0.9rem;color:var(--muted)}
+    .course.disabled{opacity:0.45;pointer-events:none}
+    .orario-menu{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+    .chip{padding:6px 10px;border-radius:999px;border:1px solid var(--accent);background:white;cursor:pointer}
+    .chip.active{background:var(--accent);color:white;border-color:var(--accent)}
+    .floating-admin{
+      position:fixed;right:18px;bottom:18px;background:var(--card);border-radius:10px;padding:10px;box-shadow:0 6px 18px rgba(2,6,23,0.08);
+    }
+    footer{font-size:0.85rem;color:var(--muted);margin-top:12px;text-align:center}
+    @media (max-width:860px){
+      .two-col{grid-template-columns:1fr}
+      header{flex-direction:column;align-items:flex-start;gap:10px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app-root" aria-live="polite">
+    <!-- App rendered by JavaScript -->
+  </div>
+
+  <button class="floating-admin" id="adminBtn" aria-label="Pannello amministrazione">Area Admin</button>
+
+  <script>
+  (function(){
+    // Dati salvati in localStorage
+    const LS_KEYS = {
+      STUDENTI: 'studentiValidi',
+      CORSI: 'corsi',
+      REG: 'registrazioni',
+      UTENTE: 'utente',
+      ADMIN: 'adminCodes',
+      GIORNO: 'giornoStudente'
+    };
+
+    // valori di default
+    const DEFAULT_ADMIN_CODE = 'avogadro@2025';
+
+    const root = document.getElementById('app-root');
+
+    // carica o inizializza
+    const studentiValidi = loadJSON(LS_KEYS.STUDENTI, []);
+    const corsi = loadJSON(LS_KEYS.CORSI, []);
+    const registrazioni = loadJSON(LS_KEYS.REG, {});
+    let utente = loadJSON(LS_KEYS.UTENTE, null);
+    const adminCodes = new Set(loadJSON(LS_KEYS.ADMIN, [DEFAULT_ADMIN_CODE]));
+    let giornoStudente = localStorage.getItem(LS_KEYS.GIORNO) || 'Giorno 1';
+    let filtroOrario = null;
+
+    function saveAll(){
+      saveJSON(LS_KEYS.STUDENTI, studentiValidi);
+      saveJSON(LS_KEYS.CORSI, corsi);
+      saveJSON(LS_KEYS.REG, registrazioni);
+      saveJSON(LS_KEYS.ADMIN, Array.from(adminCodes));
+      if(utente) localStorage.setItem(LS_KEYS.UTENTE, JSON.stringify(utente));
+      else localStorage.removeItem(LS_KEYS.UTENTE);
+      localStorage.setItem(LS_KEYS.GIORNO, giornoStudente);
+    }
+
+    function loadJSON(key, fallback){
+      try{
+        const v = localStorage.getItem(key);
+        return v ? JSON.parse(v) : fallback;
+      }catch(e){ return fallback; }
+    }
+    function saveJSON(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+
+    function parseTimeToMinutes(t){
+      // accetta HH:MM o H:MM, ritorna minuti dall'inizio del giorno
+      if(!t) return null;
+      const m = t.trim().match(/^(\d{1,2}):(\d{2})$/);
+      if(!m) return null;
+      return parseInt(m[1],10)*60 + parseInt(m[2],10);
+    }
+    function orariSovrapposti(c1, c2){
+      const a1 = parseTimeToMinutes(c1.inizio);
+      const b1 = parseTimeToMinutes(c1.fine);
+      const a2 = parseTimeToMinutes(c2.inizio);
+      const b2 = parseTimeToMinutes(c2.fine);
+      if(a1==null||b1==null||a2==null||b2==null) return false;
+      return !(b1 <= a2 || b2 <= a1);
+    }
+
+    // Utility
+    function fullname(s){ return (s.nome + ' ' + s.cognome).trim(); }
+    function findStudente(nome,cognome){
+      return studentiValidi.find(s => s.nome.toLowerCase() === (nome||'').toLowerCase() && s.cognome.toLowerCase() === (cognome||'').toLowerCase());
+    }
+
+    // Template render
+    function renderLogin(){
+      root.innerHTML = `
+      <div class="card">
+        <header><h1>Cogestione — Accesso Studenti</h1><small style="color:var(--muted)">Inserisci le tue credenziali</small></header>
+        <div class="grid">
+          <div class="stack">
+            <label for="nome">Nome</label>
+            <input id="nome" type="text" autocomplete="given-name">
+            <label for="cognome">Cognome</label>
+            <input id="cognome" type="text" autocomplete="family-name">
+            <label for="password">Password</label>
+            <input id="password" type="password" autocomplete="current-password">
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button id="loginBtn">Entra</button>
+              <button id="demoBtn" class="ghost">Accesso Demo</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <footer class="card"><strong>Nota:</strong> Questa è una semplice applicazione client-side che usa localStorage. Per pubblicare su GitHub Pages, copia questo file in docs/index.html e attiva Pages per il branch main / folder /docs.</footer>
+      `;
+      document.getElementById('loginBtn').addEventListener('click', handleLogin);
+      document.getElementById('demoBtn').addEventListener('click', ()=> {
+        // comodo per provare: crea un utente demo se non esiste e accede
+        let demo = findStudente('Mario','Rossi');
+        if(!demo){
+          demo = {nome:'Mario',cognome:'Rossi',classe:'5A',password:'demo',logged:false};
+          studentiValidi.push(demo); saveAll();
+        }
+        utente = demo; utente.logged = true; saveAll(); renderHome();
+      });
+    }
+
+    function handleLogin(){
+      const nome = document.getElementById('nome').value.trim();
+      const cognome = document.getElementById('cognome').value.trim();
+      const password = document.getElementById('password').value;
+      if(!nome || !cognome || !password){
+        return alert('Compila tutti i campi');
+      }
+      const found = findStudente(nome,cognome);
+      if(!found) return alert('Studente non trovato');
+      if(found.password !== password) return alert('Password errata');
+      utente = found; utente.logged = true; saveAll();
+      renderHome();
+    }
+
+    function renderHome(){
+      if(!utente) return renderLogin();
+      // header
+      let html = `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><h2>Benvenuto, ${utente.nome} ${utente.cognome}</h2><div style="color:var(--muted)">${utente.classe || ''}</div></div><div><button id="logoutBtn" class="ghost">Logout</button></div></div></div>`;
+
+      // filtro giorno e orari
+      const corsiGiorno = corsi.filter(c => c.giorno === giornoStudente);
+      const orariUnici = Array.from(new Set(corsiGiorno.map(c=>c.inizio))).filter(Boolean).sort();
+
+      html += `<div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>${giornoStudente}</strong>
+            <div class="orario-menu">
+              <div class="chip ${filtroOrario===null?'active':''}" data-orario="">Tutti i corsi</div>
+              ${orariUnici.map(o=>`<div class="chip ${filtroOrario===o?'active':''}" data-orario="${o}">${o}</div>`).join('')}
+            </div>
+          </div>
+          <div style="text-align:right;color:var(--muted)">Clicca su "Area Admin" per le funzioni amministrative</div>
+        </div>
+      </div>`;
+
+      // lista corsi
+      if(corsiGiorno.length === 0) {
+        html += `<div class="card"><p style="color:var(--muted)">Non ci sono corsi impostati per ${giornoStudente}.</p></div>`;
+      } else {
+        html += `<div class="grid">`;
+        corsiGiorno.forEach(c=>{
+          if(filtroOrario && c.inizio !== filtroOrario) return;
+          const iscritti = registrazioni[c.id] || [];
+          const pieno = iscritti.length >= (c.max || 0);
+          const iscritto = iscritti.includes(fullname(utente));
+          // verifica sovrapposizione con gli altri corsi a cui è iscritto lo studente nello stesso giorno
+          let disabledByOverlap = false;
+          for(const cid in registrazioni){
+            if(!registrazioni[cid].includes(fullname(utente))) continue;
+            const c2 = corsi.find(co=>co.id == cid);
+            if(!c2) continue;
+            if(c.giorno === c2.giorno && orariSovrapposti(c,c2) && !iscritto) {
+              disabledByOverlap = true;
+              break;
+            }
+          }
+          html += `<div class="card course ${disabledByOverlap? 'disabled':''}">
+            <div style="display:flex;justify-content:space-between;align-items:start">
+              <div>
+                <h3 style="margin:0">${escapeHtml(c.nome)}</h3>
+                <div class="meta">${c.giorno} • ${c.inizio || '—'} - ${c.fine || '—'} • Aula: ${c.aula||'N/A'} • Docente: ${c.docente||'N/D'}</div>
+              </div>
+              <div style="text-align:right">
+                ${iscritto? `<button class="ghost" data-action="annulla" data-id="${c.id}">Annulla iscrizione</button>` : `<button ${pieno || disabledByOverlap? 'disabled':''} data-action="iscrivi" data-id="${c.id}">Iscriviti</button>`}
+                ${pieno && !iscritto ? `<div style="color:var(--muted);margin-top:6px">Corso pieno (${iscritti.length}/${c.max})</div>` : ''}
+              </div>
+            </div>
+            <p style="margin-top:8px;color:var(--muted)">${escapeHtml(c.descrizione || '')}</p>
+            ${iscritto ? `<div style="font-size:0.85rem;color:var(--muted)">Sei iscritto a questo corso</div>` : ''}
+            ${iscritto ? `<div style="margin-top:6px;color:var(--muted)">Partecipanti: ${iscritti.join(', ') || 'Nessuno'}</div>` : ''}
+          </div>`;
+        });
+        html += `</div>`;
+      }
+
+      root.innerHTML = html;
+
+      // attach events
+      document.getElementById('logoutBtn').addEventListener('click', ()=>{
+        utente = null;
+        localStorage.removeItem(LS_KEYS.UTENTE);
+        renderLogin();
+      });
+
+      // chips
+      document.querySelectorAll('.chip').forEach(ch=>{
+        ch.addEventListener('click', e=>{
+          const val = ch.dataset.orario || null;
+          filtroOrario = val === '' ? null : val;
+          renderHome();
+        });
+      });
+
+      // iscrizioni / annullamenti
+      root.querySelectorAll('[data-action="iscrivi"]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const id = btn.dataset.id;
+          iscrivi(Number(id));
+        });
+      });
+      root.querySelectorAll('[data-action="annulla"]').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const id = btn.dataset.id;
+          annullaIscrizione(Number(id));
+        });
+      });
+    }
+
+    function iscrivi(id){
+      const corso = corsi.find(c=>c.id === id);
+      if(!corso) return alert('Corso non trovato');
+      if(!registrazioni[id]) registrazioni[id] = [];
+      const name = fullname(utente);
+      if(registrazioni[id].includes(name)) return;
+      // verifica sovrapposizione
+      for(const cid in registrazioni){
+        if(!registrazioni[cid].includes(name)) continue;
+        const c2 = corsi.find(co=>co.id == cid);
+        if(!c2) continue;
+        if(corso.giorno === c2.giorno && orariSovrapposti(corso,c2)) return alert('Orario sovrapposto con un corso a cui sei già iscritto');
+      }
+      if(registrazioni[id].length >= (corso.max || 0)) return alert('Posti esauriti');
+      registrazioni[id].push(name);
+      saveAll();
+      renderHome();
+    }
+
+    function annullaIscrizione(id){
+      if(!registrazioni[id]) return;
+      const name = fullname(utente);
+      registrazioni[id] = registrazioni[id].filter(x=>x !== name);
+      saveAll();
+      renderHome();
+    }
+
+    // Admin
+    document.getElementById('adminBtn').addEventListener('click', checkAdmin);
+
+    function checkAdmin(){
+      const code = prompt('Inserisci codice amministratore:');
+      if(!code) return;
+      if(adminCodes.has(code)) return renderAdminPanel();
+      alert('Codice admin errato');
+    }
+
+    function renderAdminPanel(){
+      let html = `<div class="card">
+        <header style="display:flex;justify-content:space-between;align-items:center">
+          <div><h2>Area Amministrativa</h2><div style="color:var(--muted)">Gestisci studenti, corsi e giorno visibile</div></div>
+          <div><button id="adminClose" class="ghost">Chiudi</button></div>
+        </header>
+        <div class="two-col grid" style="margin-top:12px">
+          <div>
+            <div class="card">
+              <h3>Giorno visibile agli studenti</h3>
+              <select id="giornoSelect">
+                <option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option>
+              </select>
+              <div style="margin-top:8px">
+                <button id="setGiorno">Imposta</button>
+              </div>
+            </div>
+
+            <div class="card" style="margin-top:12px">
+              <h3>Gestione Studenti</h3>
+              <div class="stack">
+                <label>Nuovo studente</label>
+                <input id="studNome" placeholder="Nome">
+                <input id="studCognome" placeholder="Cognome">
+                <input id="studClasse" placeholder="Classe">
+                <input id="studPassword" placeholder="Password">
+                <div style="display:flex;gap:8px">
+                  <button id="addStud">Aggiungi Studente</button>
+                  <input id="studFile" type="file" accept=".csv,.txt" style="flex:1">
+                  <button id="uploadStudFile" class="ghost">Carica file</button>
+                </div>
+              </div>
+              <div style="margin-top:12px">
+                <strong>Elenco studenti</strong>
+                <ul id="listaStudenti" style="margin-top:8px;max-height:240px;overflow:auto">${studentiValidi.map((s,i)=>`<li>${escapeHtml(s.nome)} ${escapeHtml(s.cognome)} (${escapeHtml(s.classe||'')}) <button data-edit="${i}" class="ghost">Modifica</button></li>`).join('')}</ul>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="card">
+              <h3>Gestione Corsi</h3>
+              <div class="stack">
+                <input id="corsoNome" placeholder="Nome corso">
+                <div style="display:flex;gap:8px">
+                  <input id="corsoOraInizio" placeholder="Ora inizio (HH:MM)">
+                  <input id="corsoOraFine" placeholder="Ora fine (HH:MM)">
+                </div>
+                <input id="corsoMax" type="number" placeholder="Max partecipanti">
+                <input id="corsoAula" placeholder="Aula">
+                <input id="corsoDocente" placeholder="Docente">
+                <textarea id="corsoDescrizione" placeholder="Descrizione" rows="3" style="padding:8px;border-radius:8px;border:1px solid #eef6ff"></textarea>
+                <select id="corsoGiorno"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
+                <div style="display:flex;gap:8px">
+                  <button id="addCorso">Aggiungi Corso</button>
+                </div>
+              </div>
+              <div style="margin-top:12px">
+                <strong>Elenco corsi</strong>
+                <ul id="listaCorsi" style="margin-top:;max-height:260px;overflow:auto">${corsi.map((c,i
