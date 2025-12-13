@@ -4,9 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cogestione Studentesca</title>
-
 <style>
-body { font-family: Arial, sans-serif; background:#f4f4f4; padding:20px; }
+body { font-family: Arial,sans-serif; background:#f4f4f4; padding:20px; }
 .card { background:#fff; padding:15px; margin-bottom:12px; border-radius:8px; }
 button { padding:8px 12px; border:none; border-radius:6px; background:#007bff; color:#fff; cursor:pointer; }
 button:disabled { background:#aaa; }
@@ -17,7 +16,7 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 .floating-admin { position:fixed; bottom:20px; right:20px; }
 </style>
 
-<!-- Firebase -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
@@ -69,7 +68,7 @@ function render(){
 
 /* ================= LOGIN ================= */
 function renderLogin(){
-  app.innerHTML = `
+  document.getElementById("app").innerHTML = `
   <div class="card">
     <h2>Login Studente</h2>
     <input id="nome" placeholder="Nome">
@@ -80,13 +79,10 @@ function renderLogin(){
 }
 
 function login(){
-  const nomeVal = nome.value.trim().toLowerCase();
-  const cognomeVal = cognome.value.trim().toLowerCase();
-  const passVal = password.value.trim();
-
-  const found = Object.values(studenti)
-    .find(s => s.nome.toLowerCase()==nomeVal && s.cognome.toLowerCase()==cognomeVal);
-
+  const nomeVal = document.getElementById("nome").value.trim().toLowerCase();
+  const cognomeVal = document.getElementById("cognome").value.trim().toLowerCase();
+  const passVal = document.getElementById("password").value.trim();
+  const found = Object.values(studenti).find(s => s.nome.toLowerCase()===nomeVal && s.cognome.toLowerCase()===cognomeVal);
   if(!found || found.password!==passVal) return alert("Credenziali errate");
   utente = found;
   view="home"; render();
@@ -117,12 +113,12 @@ function renderHome(){
       <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'}</p>
       <p>${c.descrizione || ''}</p>
       ${iscritto?
-        `<button onclick="annulla('${c.id}')">Annulla</button>`:
+        `<button onclick="annulla('${c.id}')">Annulla iscrizione</button>`:
         `<button onclick="iscrivi('${c.id}')">Iscriviti</button>`}
     </div>`;
   });
 
-  app.innerHTML=html;
+  document.getElementById("app").innerHTML = html;
 }
 
 function logout(){ utente=null; view="login"; render(); }
@@ -158,7 +154,7 @@ function renderAdmin(){
   <select id="giorno">
     <option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option>
   </select>
-  <button onclick="db.ref('giornoStudente').set(giorno.value)">Imposta</button>
+  <button onclick="db.ref('giornoStudente').set(document.getElementById('giorno').value)">Imposta</button>
   </div>
 
   <div class="card">
@@ -193,7 +189,7 @@ function renderAdmin(){
   <div id="res"></div>
   </div>`;
 
-  app.innerHTML=html;
+  document.getElementById("app").innerHTML = html;
   renderStudentList();
   renderCourseList();
 }
@@ -237,7 +233,7 @@ function modStudent(id){
   const cognome=prompt("Cognome",s.cognome);
   const classe=prompt("Classe",s.classe);
   const password=prompt("Password",s.password);
-  db.ref("studenti/"+id).set({nome,nome?nome:s.nome, cognome:cognome?cognome:s.cognome, classe:classe?classe:s.classe, password:password?password:s.password});
+  db.ref("studenti/"+id).set({nome:nome||s.nome, cognome:cognome||s.cognome, classe:classe||s.classe, password:password||s.password});
 }
 
 /* ================= CORSI ================= */
@@ -280,13 +276,13 @@ function modCourse(id){
   const giorno=prompt("Giorno",c.giorno);
   db.ref("corsi/"+id).set({
     id,
-    nome:nome?nome:c.nome,
-    inizio:inizio?inizio:c.inizio,
-    fine:fine?fine:c.fine,
-    aula:aula?aula:c.aula,
-    docente:docente?docente:c.docente,
-    descrizione:desc?desc:c.descrizione,
-    giorno:giorno?giorno:c.giorno
+    nome:nome||c.nome,
+    inizio:inizio||c.inizio,
+    fine:fine||c.fine,
+    aula:aula||c.aula,
+    docente:docente||c.docente,
+    descrizione:desc||c.descrizione,
+    giorno:giorno||c.giorno
   });
 }
 
@@ -303,7 +299,6 @@ function cerca(){
   });
   res.innerHTML=out||"Nessun risultato";
 }
-
 </script>
 </body>
 </html>
