@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cogestione Avogadro</title>
+  <link rel="stylesheet" href="./css/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Cogestione Avogadro</h1>
+    <p>Pagina pubblica - modifica i file in docs/ per aggiornare questo sito</p>
+  </header>
+
+  <main>
+    <section id="items-section">
+      <h2>Elenco elementi</h2>
+      <input id="filter" placeholder="Filtra..." />
+      <ul id="items"></ul>
+    </section>
+
+    <section id="contact-section">
+      <h2>Contattaci</h2>
+      <!-- Sostituisci action con l'endpoint Formspree fornito da Formspree -->
+      <form id="contact-form" action="https://formspree.io/f/IL_TUO_ID" method="POST">
+        <label>
+          Email:
+          <input type="email" name="email" required />
+        </label>
+        <label>
+          Messaggio:
+          <textarea name="message" required></textarea>
+        </label>
+        <button type="submit">Invia</button>
+      </form>
+      <div id="contact-status"></div>
+    </section>
+  </main>
+
+  <script src="./js/main.js"></script>
+</body>
+</html>
