@@ -14,13 +14,12 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 .orario-btn { padding:6px 10px; border:1px solid #007bff; border-radius:6px; cursor:pointer; }
 .orario-btn.disabled { opacity:0.4; pointer-events:none; }
 .floating-admin { position:fixed; bottom:20px; right:20px; }
+.course-disabled { opacity:0.4; pointer-events:none; }
 </style>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
-
 <body>
 <h1>Cogestione Studentesca</h1>
 <div id="app"></div>
@@ -29,7 +28,6 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 <script>
 /* ================= CONFIG ================= */
 const ADMIN_PASSWORD = "avogadro@2025";
-
 const firebaseConfig = {
   apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
   authDomain: "cogestione-liceo-avogadro.firebaseapp.com",
@@ -107,14 +105,27 @@ function renderHome(){
     if(filtroOrario && c.inizio!==filtroOrario) return;
     const iscr = registrazioni[c.id]||[];
     const iscritto = iscr.includes(utente.nome+" "+utente.cognome);
+    const pieno = iscr.length >= (c.max || Infinity);
+
+    // Sovrapposizione orari
+    let overlap = false;
+    Object.entries(registrazioni).forEach(([cid,arr])=>{
+      if(arr.includes(utente.nome+" "+utente.cognome)){
+        const cc = corsi[cid];
+        if(cc.giorno===c.giorno && !(c.fine<=cc.inizio || cc.fine<=c.inizio) && c.id!==cc.id){
+          overlap = true;
+        }
+      }
+    });
+
     html+=`
-    <div class="card">
+    <div class="card ${pieno && !iscritto || overlap ? 'course-disabled' : ''}">
       <h3>${c.nome}</h3>
       <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'}</p>
       <p>${c.descrizione || ''}</p>
       ${iscritto?
         `<button onclick="annulla('${c.id}')">Annulla iscrizione</button>`:
-        `<button onclick="iscrivi('${c.id}')">Iscriviti</button>`}
+        `<button onclick="iscrivi('${c.id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`}
     </div>`;
   });
 
@@ -126,15 +137,24 @@ function logout(){ utente=null; view="login"; render(); }
 /* ================= ISCRIZIONI ================= */
 function iscrivi(id){
   const key = utente.nome+" "+utente.cognome;
-  db.ref("registrazioni/"+id).once("value", s=>{
-    const arr=s.val()||[];
-    if(!arr.includes(key)) arr.push(key);
-    db.ref("registrazioni/"+id).set(arr);
-  });
+  const arr = registrazioni[id] || [];
+  // Controllo sovrapposizione
+  const corso = corsi[id];
+  for(const cid in registrazioni){
+    if(registrazioni[cid].includes(key)){
+      const cc = corsi[cid];
+      if(cc.giorno===corso.giorno && !(corso.fine<=cc.inizio || cc.fine<=corso.inizio)) return alert("Orario sovrapposto");
+    }
+  }
+  if(arr.includes(key)) return;
+  if(arr.length >= corso.max) return alert("Posti esauriti");
+  arr.push(key);
+  db.ref("registrazioni/"+id).set(arr);
 }
+
 function annulla(id){
   const key = utente.nome+" "+utente.cognome;
-  const arr=(registrazioni[id]||[]).filter(x=>x!==key);
+  const arr = (registrazioni[id]||[]).filter(x=>x!==key);
   db.ref("registrazioni/"+id).set(arr);
 }
 
@@ -177,6 +197,7 @@ function renderAdmin(){
   <input id="ca" placeholder="Aula">
   <input id="cd" placeholder="Docente">
   <input id="cdesc" placeholder="Descrizione">
+  <input id="cmax" placeholder="Max partecipanti">
   <select id="cg"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
   <button onclick="addCorso()">Aggiungi</button>
   <ul id="courseList"></ul>
@@ -190,19 +211,26 @@ function renderAdmin(){
   </div>`;
 
   document.getElementById("app").innerHTML = html;
+  document.getElementById("giorno").value = giornoStudente;
   renderStudentList();
   renderCourseList();
 }
 
 /* ================= STUDENTI ================= */
 function addStudente(){
-  const id=Date.now();
-  const obj={nome:sn.value, cognome:sc.value, classe:sl.value, password:sp.value};
-  db.ref("studenti/"+id).set(obj);
-  sn.value=sc.value=sl.value=sp.value="";
+  const snVal=document.getElementById("sn").value.trim();
+  const scVal=document.getElementById("sc").value.trim();
+  const slVal=document.getElementById("sl").value.trim();
+  const spVal=document.getElementById("sp").value.trim();
+  if(!snVal || !scVal || !slVal || !spVal) return alert("Completa tutti i campi");
+  const id = Date.now();
+  db.ref("studenti/"+id).set({nome:snVal,cognome:scVal,classe:slVal,password:spVal});
+  document.getElementById("sn").value=document.getElementById("sc").value=document.getElementById("sl").value=document.getElementById("sp").value="";
 }
 
 function upload(){
+  const fileInput=document.getElementById("file");
+  if(!fileInput.files[0]) return alert("Seleziona un file");
   const r=new FileReader();
   r.onload=e=>{
     e.target.result.split("\n").forEach(l=>{
@@ -213,7 +241,7 @@ function upload(){
         });
     });
   };
-  r.readAsText(file.files[0]);
+  r.readAsText(fileInput.files[0]);
 }
 
 function renderStudentList(){
@@ -221,8 +249,7 @@ function renderStudentList(){
   ul.innerHTML="";
   Object.entries(studenti).forEach(([id,s])=>{
     const li=document.createElement("li");
-    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) 
-    <button onclick="modStudent('${id}')">Modifica</button>`;
+    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) <button onclick="modStudent('${id}')">Modifica</button>`;
     ul.appendChild(li);
   });
 }
@@ -233,24 +260,23 @@ function modStudent(id){
   const cognome=prompt("Cognome",s.cognome);
   const classe=prompt("Classe",s.classe);
   const password=prompt("Password",s.password);
-  db.ref("studenti/"+id).set({nome:nome||s.nome, cognome:cognome||s.cognome, classe:classe||s.classe, password:password||s.password});
+  db.ref("studenti/"+id).set({nome:nome||s.nome,cognome:cognome||s.cognome,classe:classe||s.classe,password:password||s.password});
 }
 
 /* ================= CORSI ================= */
 function addCorso(){
-  const id=Date.now();
-  const obj={
-    id,
-    nome:cn.value,
-    inizio:ci.value,
-    fine:cf.value,
-    aula:ca.value,
-    docente:cd.value,
-    descrizione:cdesc.value,
-    giorno:cg.value
-  };
-  db.ref("corsi/"+id).set(obj);
-  cn.value=ci.value=cf.value=ca.value=cd.value=cdesc.value="";
+  const cnVal=document.getElementById("cn").value.trim();
+  const ciVal=document.getElementById("ci").value.trim();
+  const cfVal=document.getElementById("cf").value.trim();
+  const caVal=document.getElementById("ca").value.trim();
+  const cdVal=document.getElementById("cd").value.trim();
+  const cdescVal=document.getElementById("cdesc").value.trim();
+  const cmaxVal=parseInt(document.getElementById("cmax").value);
+  const cgVal=document.getElementById("cg").value;
+  if(!cnVal || !ciVal || !cfVal || !cmaxVal) return alert("Compila almeno nome, orari e max partecipanti");
+  const id = Date.now();
+  db.ref("corsi/"+id).set({id,nome:cnVal,inizio:ciVal,fine:cfVal,aula:caVal,docente:cdVal,descrizione:cdescVal,max:cmaxVal,giorno:cgVal});
+  document.getElementById("cn").value=document.getElementById("ci").value=document.getElementById("cf").value=document.getElementById("ca").value=document.getElementById("cd").value=document.getElementById("cdesc").value=document.getElementById("cmax").value="";
 }
 
 function renderCourseList(){
@@ -259,7 +285,7 @@ function renderCourseList(){
   Object.entries(corsi).forEach(([id,c])=>{
     const iscr = registrazioni[c.id]||[];
     const li=document.createElement("li");
-    li.innerHTML=`${c.nome} (${c.giorno} ${c.inizio}-${c.fine}) | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'} | Iscritti: ${iscr.join(", ") || 'Nessuno'} 
+    li.innerHTML=`${c.nome} (${c.giorno} ${c.inizio}-${c.fine}) | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'} | Max: ${c.max||'∞'} | Iscritti: ${iscr.join(", ")||'Nessuno'} 
     <button onclick="modCourse('${id}')">Modifica</button>`;
     ul.appendChild(li);
   });
@@ -273,6 +299,7 @@ function modCourse(id){
   const aula=prompt("Aula",c.aula);
   const docente=prompt("Docente",c.docente);
   const desc=prompt("Descrizione",c.descrizione);
+  const max=parseInt(prompt("Max partecipanti",c.max));
   const giorno=prompt("Giorno",c.giorno);
   db.ref("corsi/"+id).set({
     id,
@@ -282,6 +309,7 @@ function modCourse(id){
     aula:aula||c.aula,
     docente:docente||c.docente,
     descrizione:desc||c.descrizione,
+    max:max||c.max,
     giorno:giorno||c.giorno
   });
 }
@@ -291,13 +319,13 @@ function cerca(){
   let out="";
   Object.entries(registrazioni).forEach(([id,arr])=>{
     arr.forEach(n=>{
-      if(n.toLowerCase().includes(rs.value.toLowerCase())){
+      if(n.toLowerCase().includes(document.getElementById("rs").value.toLowerCase())){
         const c=corsi[id];
         if(c) out+=`<p>${n} → ${c.nome} (${c.giorno} ${c.inizio}-${c.fine})</p>`;
       }
     });
   });
-  res.innerHTML=out||"Nessun risultato";
+  document.getElementById("res").innerHTML = out||"Nessun risultato";
 }
 </script>
 </body>
