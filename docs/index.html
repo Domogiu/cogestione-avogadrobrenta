@@ -230,14 +230,30 @@ function addCorso(){
   document.getElementById("cn").value=document.getElementById("ci").value=document.getElementById("cf").value=document.getElementById("ca").value=document.getElementById("cd").value=document.getElementById("cdesc").value=document.getElementById("cmax").value="";
 }
 function renderCourseList(){
-  const ul=document.getElementById("courseList"); ul.innerHTML="";
-  Object.entries(corsi).forEach(([id,c])=>{
-    const iscr=registrazioni[c.id]||[];
-    const li=document.createElement("li");
-    li.innerHTML=`${c.nome} (${c.giorno} ${c.inizio}-${c.fine}) | Aula:${c.aula||'N/A'} | Docente:${c.docente||'N/A'} | Max:${c.max||'∞'} | Iscritti: ${iscr.join(", ")||'Nessuno'} 
-    <button onclick="modCourse('${id}')">Modifica</button>`;
+  const ul = document.getElementById("courseList");
+  ul.innerHTML = "";
+
+  Object.entries(corsi).forEach(([id, c]) => {
+    const iscritti = registrazioni[id] || [];
+
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <b>${c.nome}</b> (${c.giorno} ${c.inizio}-${c.fine})<br>
+      Aula: ${c.aula || "N/A"} | Docente: ${c.docente || "N/A"} | Max: ${c.max || "∞"}<br>
+      Iscritti: ${iscritti.length ? iscritti.join(", ") : "Nessuno"}<br>
+      <button onclick="modCourse('${id}')">Modifica</button>
+      <button style="background:#dc3545;color:white" onclick="deleteCourse('${id}')">Elimina</button>
+    `;
+
     ul.appendChild(li);
   });
+}
+
+function deleteCourse(id){
+  if (!confirm("Sei sicuro di voler eliminare questo corso?")) return;
+
+  firebase.database().ref("corsi/" + id).remove();
+  firebase.database().ref("registrazioni/" + id).remove();
 }
 function modCourse(id){
   const c=corsi[id];
