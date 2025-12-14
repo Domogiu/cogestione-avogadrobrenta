@@ -86,11 +86,19 @@ function renderHome(){
     .filter(([id,c])=>c.giorno===giornoStudente)
     .sort((a,b)=>a[1].inizio.localeCompare(b[1].inizio));
 
-  const orari=[...new Set(lista.map(([id,c])=>c.inizio))];
-  html+=`<div class="orario-menu">
-    <div class="orario-btn ${!filtroOrario?'disabled':''}" onclick="filtroOrario=null;render()">Tutti</div>`;
-  orari.forEach(o=>html+=`<div class="orario-btn ${filtroOrario===o?'disabled':''}" onclick="filtroOrario='${o}';render()">${o}</div>`);
-  html+=`</div>`;
+ const orari = [...new Set(lista.map(([id,c]) => c.inizio))]
+  .sort((a, b) => {
+    const [ah, am] = a.split(':').map(Number);
+    const [bh, bm] = b.split(':').map(Number);
+    return ah * 60 + am - (bh * 60 + bm);
+  });
+
+html += `<div class="orario-menu">
+  <div class="orario-btn ${!filtroOrario ? 'disabled' : ''}" onclick="filtroOrario=null;render()">Tutti</div>`;
+orari.forEach(o => 
+  html += `<div class="orario-btn ${filtroOrario===o ? 'disabled' : ''}" onclick="filtroOrario='${o}';render()">${o}</div>`
+);
+html += `</div>`;
 
   lista.forEach(([id,c])=>{
     if(filtroOrario && c.inizio!==filtroOrario) return;
@@ -120,18 +128,30 @@ function logout(){ utente=null; view="login"; render(); }
 
 /* ISCRIZIONI */
 function iscrivi(id){
-  const key=utente.nome+" "+utente.cognome;
-  const arr=registrazioni[id]||[];
-  const corso=corsi[id];
+  const key = utente.nome + " " + utente.cognome;
+  const corso = corsi[id];
+  if(!corso) return alert("Corso non trovato");
+
+  // Controllo sovrapposizione orari
   for(const cid in registrazioni){
     if(registrazioni[cid].includes(key)){
-      const cc=corsi[cid];
-      if(cc.giorno===corso.giorno && !(corso.fine<=cc.inizio || cc.fine<=corso.inizio)) return alert("Orario sovrapposto");
+      const c2 = corsi[cid];
+      if(c2.giorno === corso.giorno && !(corso.fine <= c2.inizio || c2.fine <= corso.inizio)){
+        return alert("Orario sovrapposto");
+      }
     }
   }
-  if(arr.includes(key)) return;
-  if(arr.length>=corso.max) return alert("Posti esauriti");
-  arr.push(key); db.ref("registrazioni/"+id).set(arr);
+
+  // Controllo se già iscritto
+  if(!registrazioni[id]) registrazioni[id] = [];
+  if(registrazioni[id].includes(key)) return;
+
+  // Controllo posti disponibili
+  if(registrazioni[id].length >= corso.max) return alert("Posti esauriti");
+
+  // Aggiunge l'iscrizione
+  registrazioni[id].push(key);
+  db.ref("registrazioni/" + id).set(registrazioni[id]);
 }
 function annulla(id){
   const key=utente.nome+" "+utente.cognome;
@@ -148,12 +168,11 @@ function checkAdmin(){
 
 function renderAdmin(){
   let html=`<h2>Area Admin</h2>
-  <button onclick="view='home';render()">Torna al menu</button><br><br>
-
+  <button onclick="renderHome()">Torna al menu</button>
   <div class="card">
   <h3>Giorno visibile agli studenti</h3>
   <select id="giornoSelect"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
-  <button onclick="impostaGiorno()">Imposta</button>
+  <button onclick="setGiornoStudente()">Imposta</button>
   </div>
 
   <div class="card">
