@@ -190,13 +190,20 @@ function iscrivi(id){
 
   // Controllo sovrapposizione orari
   for(const cid in registrazioni){
-    if(registrazioni[cid].includes(key)){
-      const c2 = corsi[cid];
-      if(c2.giorno === corso.giorno && !(corso.fine <= c2.inizio || c2.fine <= corso.inizio)){
-        return alert("Non puoi iscriverti a più corsi nello stesso orario");
-      }
+  if(registrazioni[cid].includes(key)){
+    const c2 = corsi[cid];
+
+    // ⚠️ controllo fondamentale
+    if(!c2) continue;
+
+    if(
+      c2.giorno === corso.giorno &&
+      !(corso.fine <= c2.inizio || c2.fine <= corso.inizio)
+    ){
+      return alert("Non puoi iscriverti a più corsi nello stesso orario");
     }
   }
+}
 
   if(!registrazioni[id]) registrazioni[id]=[];
   if(registrazioni[id].includes(key)) return alert("Sei già iscritto a questo corso");
