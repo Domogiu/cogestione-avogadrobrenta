@@ -132,26 +132,32 @@ function iscrivi(id){
   const corso = corsi[id];
   if(!corso) return alert("Corso non trovato");
 
-  // Controllo sovrapposizione orari
+  // Controllo sovrapposizione orari con qualsiasi corso già iscritto
   for(const cid in registrazioni){
     if(registrazioni[cid].includes(key)){
       const c2 = corsi[cid];
       if(c2.giorno === corso.giorno && !(corso.fine <= c2.inizio || c2.fine <= corso.inizio)){
-        return alert("Orario sovrapposto");
+        return alert("Non puoi iscriverti a più corsi nello stesso orario");
       }
     }
   }
 
-  // Controllo se già iscritto
+  // Inizializza l'array delle registrazioni se non esiste
   if(!registrazioni[id]) registrazioni[id] = [];
-  if(registrazioni[id].includes(key)) return;
+
+  // Controllo già iscritto
+  if(registrazioni[id].includes(key)) return alert("Sei già iscritto a questo corso");
 
   // Controllo posti disponibili
   if(registrazioni[id].length >= corso.max) return alert("Posti esauriti");
 
-  // Aggiunge l'iscrizione
+  // Aggiunge l'iscrizione e aggiorna Firebase
   registrazioni[id].push(key);
-  db.ref("registrazioni/" + id).set(registrazioni[id]);
+  db.ref("registrazioni/" + id).set(registrazioni[id])
+    .then(() => {
+      render(); // Aggiorna subito l'interfaccia
+    })
+    .catch(err => alert("Errore durante l'iscrizione: " + err));
 }
 function annulla(id){
   const key=utente.nome+" "+utente.cognome;
