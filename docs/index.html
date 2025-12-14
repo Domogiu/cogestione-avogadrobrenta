@@ -164,9 +164,17 @@ function renderCorsi(){
     for(const cid in registrazioni){
       if(registrazioni[cid].includes(utente.nome+" "+utente.cognome)){
         const c2 = corsi[cid];
-        if(c2.giorno===c.giorno && !(c.fine<=c2.inizio || c2.fine<=c.inizio) && !iscritto){
-          disabledByOverlap=true;
-        }
+        const s1=timeToMinutes(corso.inizio);
+const e1=timeToMinutes(corso.fine);
+const s2=timeToMinutes(c2.inizio);
+const e2=timeToMinutes(c2.fine);
+
+if(
+  c2.giorno === corso.giorno &&
+  !(e1 <= s2 || e2 <= s1)
+){
+  return alert("Non puoi iscriverti a più corsi nello stesso orario");
+}
       }
     }
 
