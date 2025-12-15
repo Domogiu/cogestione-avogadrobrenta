@@ -162,19 +162,36 @@ html += `</div>`;
         if(cc.giorno===c.giorno && !(c.fine<=cc.inizio || cc.fine<=c.inizio) && id!==cid) overlap=true;
       }
     });
+
+    // Calcolo classi da applicare
+    let cardClass = '';
+    let buttonHtml = '';
+
+    if(iscrizioniBloccate) {
+        if(iscritto){
+            cardClass = ''; // corso normale
+            buttonHtml = `<button onclick="annulla('${id}')">Annulla iscrizione</button>`;
+        } else {
+            cardClass = 'course-disabled'; // trasparente e non cliccabile
+            buttonHtml = `<button disabled>Iscrizioni bloccate</button>`;
+        }
+    } else {
+        cardClass = (pieno&&!iscritto||overlap) ? 'course-disabled' : '';
+        if(iscritto){
+            buttonHtml = `<button onclick="annulla('${id}')">Annulla iscrizione</button>`;
+        } else {
+            buttonHtml = `<button onclick="iscrivi('${id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`;
+        }
+    }
+
     html+=`
-    <div class="card ${pieno&&!iscritto||overlap?'course-disabled':''}">
+    <div class="card ${cardClass}">
       <h3>${c.nome}</h3>
       <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'}</p>
       <p>${c.descrizione||''}</p>
-     ${iscrizioniBloccate
-  ? `<button disabled>${iscritto ? "Iscrizioni bloccate" : "Iscriviti (bloccato)"}</button>`
-  : iscritto
-      ? `<button onclick="annulla('${id}')">Annulla iscrizione</button>`
-      : `<button onclick="iscrivi('${id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`}
+      ${buttonHtml}
     </div>`;
-  });
-
+});
   document.getElementById("app").innerHTML = html;
 }
 function logout(){ utente=null; view="login"; render(); }
