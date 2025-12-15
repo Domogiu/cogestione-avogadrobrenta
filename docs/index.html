@@ -272,6 +272,17 @@ function renderAdmin(){
 }
 
 /* FUNZIONI ADMIN */
+function tornaAlMenu(){
+  // Se l'utente è loggato, torna ai corsi
+  if(utente){
+    view = "home";
+  } 
+  // Se NON è loggato, torna al login
+  else {
+    view = "login";
+  }
+  render();
+}
 function impostaGiorno(){ db.ref("giornoStudente").set(document.getElementById("giornoSelect").value); }
 
 function addStudente(){
