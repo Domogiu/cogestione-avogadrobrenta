@@ -311,59 +311,37 @@ function addStudente(){
 }
 
 function uploadStudent(){
-  const input = document.getElementById("file");
-  if(!input.files[0]) return alert("Seleziona un PDF");
+  const f = document.getElementById("file");
+  if(!f.files[0]) return alert("Seleziona un file");
 
-  const file = input.files[0];
   const reader = new FileReader();
-
-  reader.onload = function(){
-    const typedarray = new Uint8Array(this.result);
-
-    pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-      let text = "";
-
-      const promises = [];
-      for(let i=1; i<=pdf.numPages; i++){
-        promises.push(
-          pdf.getPage(i).then(page =>
-            page.getTextContent().then(content => {
-              content.items.forEach(item => text += item.str + "\n");
-            })
-          )
-        );
+  reader.onload = e => {
+    const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l);
+    const promises = lines.map(line => {
+      const [nome, cognome, classe, password] = line.split(",").map(s => s.trim());
+      if(nome && cognome && classe && password){
+        const id = Date.now() + Math.random(); // id unico
+        return db.ref("studenti/" + id).set({nome, cognome, classe, password});
+      } else {
+        return Promise.resolve(); // ignora righe malformate
       }
-
-      Promise.all(promises).then(() => {
-        const lines = text.split("\n").map(l => l.trim()).filter(l => l);
-
-        lines.forEach(line => {
-          const parts = line.split(" ");
-          if(parts.length < 4) return;
-
-          const nome = parts[0];
-          const cognome = parts[1];
-          const classe = parts[2];
-          const password = parts.slice(3).join(" ");
-
-          const id = Date.now() + Math.random();
-          db.ref("studenti/" + id).set({
-            nome,
-            cognome,
-            classe,
-            password
-          });
-        });
-
-        
-      });
     });
+
+    Promise.all(promises)
+      .then(() => {
+        alert("Studenti caricati correttamente!");
+        f.value = ""; // reset del file
+        renderStudentList(); // aggiorna subito la lista nella schermata admin
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Errore durante il caricamento degli studenti. Controlla console.");
+      });
   };
 
-alert("Studenti caricati dal PDF");
-        renderStudentList();
-  reader.readAsArrayBuffer(file);
+  reader.readAsText(f.files[0]);
 }
+
 function renderStudentList(){
   const ul=document.getElementById("studentList"); 
   ul.innerHTML="";
