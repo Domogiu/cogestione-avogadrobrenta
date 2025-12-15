@@ -59,24 +59,56 @@ function render(){
 }
 
 /* LOGIN STUDENTE */
-function renderLogin(){
+function renderLogin() {
   document.getElementById("app").innerHTML = `
     <div class="card">
       <h2>Login Studente</h2>
-      <input id="nome" placeholder="Nome">
-      <input id="cognome" placeholder="Cognome">
+      <input id="email" placeholder="Email scolastica">
       <input id="password" type="password" placeholder="Password">
-      <button onclick="login()">Entra</button>
+      <button onclick="login()">Accedi</button>
+      <hr>
+      <h2>Registrazione</h2>
+      <input id="nomeReg" placeholder="Nome">
+      <input id="cognomeReg" placeholder="Cognome">
+      <input id="classeReg" placeholder="Classe">
+      <input id="emailReg" placeholder="Email scolastica">
+      <input id="passwordReg" type="password" placeholder="Password">
+      <button onclick="registrati()">Registrati</button>
     </div>`;
 }
-function login(){
-  const n=document.getElementById("nome").value.trim().toLowerCase();
-  const c=document.getElementById("cognome").value.trim().toLowerCase();
-  const p=document.getElementById("password").value.trim();
-  const found=Object.entries(studenti).find(([id,s])=>s.nome.toLowerCase()===n && s.cognome.toLowerCase()===c);
-  if(!found || found[1].password!==p) return alert("Credenziali errate");
-  utente = {...found[1], id: found[0]};
-  view="home"; render();
+  function registrati() {
+  const nome = document.getElementById("nomeReg").value.trim();
+  const cognome = document.getElementById("cognomeReg").value.trim();
+  const classe = document.getElementById("classeReg").value.trim();
+  const email = document.getElementById("emailReg").value.trim().toLowerCase();
+  const password = document.getElementById("passwordReg").value;
+
+  if (!nome || !cognome || !classe || !email || !password) return alert("Completa tutti i campi");
+  if (!email.endsWith("@liceoavogadro.onmicrosoft.com")) return alert("Inserisci una email scolastica valida");
+
+  // Verifica che l'email non sia già registrata
+  const esiste = Object.values(studenti).some(u => u.email === email);
+  if (esiste) return alert("Email già registrata");
+
+  const id = Date.now() + Math.random();
+  const userObj = { nome, cognome, classe, email, password }; // password in chiaro, meglio hash lato client se vuoi sicurezza
+  db.ref("studenti/" + id).set(userObj)
+    .then(() => {
+      alert("Registrazione completata!");
+      renderLogin();
+    })
+    .catch(err => console.error(err));
+}
+function login() {
+  const email = document.getElementById("email").value.trim().toLowerCase();
+  const password = document.getElementById("password").value;
+
+  const found = Object.entries(studenti).find(([id,u]) => u.email === email);
+  if (!found || found[1].password !== password) return alert("Email o password errate");
+
+  utente = { ...found[1], id: found[0] };
+  view = "home";
+  render();
 }
 
 /* HOME STUDENTE */
@@ -364,14 +396,21 @@ function uploadStudent() {
 function renderStudentList() {
   const ul = document.getElementById("studentList");
   ul.innerHTML = "";
-  Object.entries(studenti).forEach(([id, s]) => {
+  Object.entries(studenti).forEach(([id,s])=>{
     const li = document.createElement("li");
-    li.innerHTML = `${s.nome} ${s.cognome} (${s.classe}) <button onclick="modStudent('${id}')">Modifica</button>
-                    <button style="background:#dc3545;color:white" onclick="deleteStudent('${id}')">Elimina</button>`;
+    li.innerHTML = `
+      ${s.nome} ${s.cognome} | Classe: ${s.classe} | Email: ${s.email}
+      <button onclick="modStudent('${id}')">Modifica</button>
+      <button style="background:#dc3545;color:white" onclick="deleteStudent('${id}')">Elimina</button>
+    `;
     ul.appendChild(li);
   });
 }
 
+function deleteStudent(id) {
+  if (!confirm("Eliminare questo studente?")) return;
+  db.ref("studenti/" + id).remove();
+}
 function deleteStudent(id) {
   if (!confirm("Sei sicuro di voler eliminare questo studente?")) return;
   db.ref("studenti/" + id).remove()
