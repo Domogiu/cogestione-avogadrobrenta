@@ -41,6 +41,7 @@ const db = firebase.database();
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
 let adminFrom = "login"; // memorizza la provenienza dell'area admin
 let iscrizioniBloccate = false; // false = iscrizioni aperte, true = blocco attivo
+let loginMode = "login"; // "login" | "register"  
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
   const d = snap.val() || {};
@@ -60,60 +61,67 @@ function render(){
 
 /* LOGIN STUDENTE */
 function renderLogin() {
-  document.getElementById("app").innerHTML = `
-    <div class="card">
-      <h2>Login Studente</h2>
-      <input id="email" placeholder="Email scolastica">
-      <input id="password" type="password" placeholder="Password">
-      <button onclick="login()">Accedi</button>
-      <hr>
-      <h2>Registrazione</h2>
-      <input id="nomeReg" placeholder="Nome">
-      <input id="cognomeReg" placeholder="Cognome">
-      <input id="classeReg" placeholder="Classe">
-      <input id="emailReg" placeholder="Email scolastica">
-      <input id="passwordReg" type="password" placeholder="Password">
-      <button onclick="registrati()">Registrati</button>
-    </div>`;
+  if (loginMode === "login") {
+    document.getElementById("app").innerHTML = `
+      <div class="card">
+        <h2>Login Studente</h2>
+        <input id="email" placeholder="nome.cognome.s@liceoavogadro.onmicrosoft.com">
+        <input id="password" type="password" placeholder="Password">
+        <button onclick="login()">Accedi</button>
+        <hr>
+        <button onclick="loginMode='register'; render()">Registrati</button>
+      </div>`;
+  } else {
+    document.getElementById("app").innerHTML = `
+      <div class="card">
+        <h2>Registrazione</h2>
+        <input id="nomeReg" placeholder="Nome">
+        <input id="cognomeReg" placeholder="Cognome">
+        <input id="classeReg" placeholder="Classe">
+        <input id="emailReg" placeholder="nome.cognome.s@liceoavogadro.onmicrosoft.com">
+        <input id="passwordReg" type="password" placeholder="Password">
+        <button onclick="registrati()">Registrati</button>
+        <hr>
+        <button onclick="loginMode='login'; render()">Torna al login</button>
+      </div>`;
+  }
 }
   function registrati() {
-  const nome = document.getElementById("nomeReg").value.trim();
-  const cognome = document.getElementById("cognomeReg").value.trim();
-  const classe = document.getElementById("classeReg").value.trim();
-  const email = document.getElementById("emailReg").value.trim().toLowerCase();
-  const password = document.getElementById("passwordReg").value;
+  const nome = nomeReg.value.trim();
+  const cognome = cognomeReg.value.trim();
+  const classe = classeReg.value.trim();
+  const email = emailReg.value.trim().toLowerCase();
+  const password = passwordReg.value;
 
-  if (!nome || !cognome || !classe || !email || !password) return alert("Completa tutti i campi");
-  if (!email.endsWith("@liceoavogadro.onmicrosoft.com")) return alert("Inserisci una email scolastica valida");
+  if (!nome || !cognome || !classe || !email || !password)
+    return alert("Completa tutti i campi");
 
-  const esiste = Object.values(studenti).some(u => u.email === email);
+  const esiste = Object.values(studenti).some(s => s.email === email);
   if (esiste) return alert("Email già registrata");
 
-  const id = Date.now() + Math.random();
-  const userObj = { nome, cognome, classe, email, password };
-  
-  db.ref("studenti/" + id).set(userObj)
-    .then(() => {
-      alert("Registrazione completata!");
-      renderLogin(); // Torna al login dopo la registrazione
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Errore nella registrazione, controlla console");
-    });
+  const id = Date.now().toString();
+
+  db.ref("studenti/" + id).set({
+    nome, cognome, classe, email, password
+  }).then(() => {
+    alert("Registrazione completata");
+    loginMode = "login";
+    render();
+  });
 }
 function login() {
   const email = document.getElementById("email").value.trim().toLowerCase();
   const password = document.getElementById("password").value;
 
-  const found = Object.entries(studenti).find(([id,u]) => u.email === email);
-  if (!found || found[1].password !== password) return alert("Email o password errate");
+  const found = Object.entries(studenti)
+    .find(([_, s]) => s.email === email && s.password === password);
+
+  if (!found) return alert("Credenziali errate");
 
   utente = { ...found[1], id: found[0] };
   view = "home";
   render();
 }
-
 /* HOME STUDENTE */
 function renderHome(){
   let html=`<h3>Ciao ${utente.nome} ${utente.cognome}</h3>
@@ -291,15 +299,11 @@ function renderAdmin(){
   <select id="giornoSelect"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
   <button onclick="impostaGiorno()">Imposta</button>
   </div>
-
+  
   <div class="card">
-  <h3>Aggiungi Studente</h3>
-  <input id="sn" placeholder="Nome"><input id="sc" placeholder="Cognome">
-  <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
-  <button onclick="addStudente()">Aggiungi</button>
-  <input type="file" id="file" accept=".pdf">
-  <button onclick="uploadStudent()">Carica PDF</button>
-  <ul id="studentList"></ul></div>
+      <h3>Studenti registrati</h3>
+      <ul id="studentList"></ul>
+  </div>;
 
   <div class="card">
   <h3>Aggiungi Corso</h3>
@@ -317,7 +321,7 @@ function renderAdmin(){
   <div id="res"></div></div>`;
   document.getElementById("app").innerHTML = html;
   document.getElementById("giornoSelect").value = giornoStudente;
-  renderStudentList(); renderCourseList();
+  renderStudentList(); renderCourseList(); renderStudentList();
 }
 
 /* FUNZIONI ADMIN */
@@ -335,142 +339,59 @@ function impostaGiorno() {
   db.ref("giornoStudente").set(nuovoGiorno)
     .then(() => render());               // Rerender per aggiornare subito la vista
   }
-function addStudente() {
-  const n = document.getElementById("sn").value.trim();
-  const c = document.getElementById("sc").value.trim();
-  const l = document.getElementById("sl").value.trim();
-  const p = document.getElementById("sp").value.trim();
-
-  if (!n || !c || !l || !p) return alert("Completa tutti i campi");
-
-  const id = Date.now() + Math.random();
-  db.ref("studenti/" + id).set({nome: n, cognome: c, classe: l, password: p})
-    .then(() => {
-      renderStudentList(); // aggiorna subito la lista
-      document.getElementById("sn").value = "";
-      document.getElementById("sc").value = "";
-      document.getElementById("sl").value = "";
-      document.getElementById("sp").value = "";
-    })
-    .catch(err => {
-      console.error("Errore aggiunta studente:", err);
-      alert("Errore durante l'aggiunta dello studente. Controlla la console.");
-    });
-}
-
-function uploadStudent() {
-  const f = document.getElementById("file");
-  if (!f.files[0]) return alert("Seleziona un file CSV o TXT");
-
-  const file = f.files[0];
-  const filename = file.name.toLowerCase();
-  if (!filename.endsWith(".csv") && !filename.endsWith(".txt")) {
-    return alert("Il file deve essere CSV o TXT");
-  }
-
-  const reader = new FileReader();
-  reader.onload = e => {
-    const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l);
-    const promises = [];
-
-    lines.forEach(line => {
-      const [nome, cognome, classe, password] = line.split(",").map(x => x.trim());
-      if (nome && cognome && classe && password) {
-        const id = Date.now() + Math.random();
-        promises.push(db.ref("studenti/" + id).set({nome, cognome, classe, password}));
-      }
-    });
-
-    Promise.all(promises)
-      .then(() => {
-        alert("Studenti aggiunti correttamente!");
-        renderStudentList();
-        f.value = ""; // pulisce il file
-      })
-      .catch(err => {
-        console.error("Errore nell'inserimento studenti:", err);
-        alert("Errore durante l'aggiunta degli studenti. Controlla la console.");
-      });
-  };
-
-  reader.readAsText(file);
-}
-
-function renderStudentList() {
+function renderStudentList(){
   const ul = document.getElementById("studentList");
+  if (!ul) return;
+
   ul.innerHTML = "";
-  Object.entries(studenti).forEach(([id,s])=>{
+
+  Object.entries(studenti).forEach(([id, s]) => {
     const li = document.createElement("li");
     li.innerHTML = `
-      ${s.nome} ${s.cognome} | Classe: ${s.classe} | Email: ${s.email}
+      ${s.nome} ${s.cognome} (${s.classe}) – ${s.email || "email non presente"}
+      <br>
       <button onclick="modStudent('${id}')">Modifica</button>
       <button style="background:#dc3545;color:white" onclick="deleteStudent('${id}')">Elimina</button>
     `;
     ul.appendChild(li);
   });
+
+  if (ul.innerHTML === "") {
+    ul.innerHTML = "<li>Nessuno studente registrato</li>";
+  }
 }
 
-function deleteStudent(id) {
-  if (!confirm("Eliminare questo studente?")) return;
-  db.ref("studenti/" + id).remove();
-}
-function deleteStudent(id) {
-  if (!confirm("Sei sicuro di voler eliminare questo studente?")) return;
-  db.ref("studenti/" + id).remove()
-    .then(() => renderStudentList());
-}
-
-function modStudent(id) {
+function modStudent(id){
   const s = studenti[id];
+  if (!s) return;
+
   const n = prompt("Nome", s.nome);
   const c = prompt("Cognome", s.cognome);
   const l = prompt("Classe", s.classe);
-  const p = prompt("Password", s.password);
+  const p = prompt("Nuova password", s.password);
+
   db.ref("studenti/" + id).set({
+    ...s,
     nome: n || s.nome,
     cognome: c || s.cognome,
     classe: l || s.classe,
     password: p || s.password
-  }).then(() => renderStudentList());
-}
-function renderStudentList(){
-  const ul=document.getElementById("studentList"); 
-  ul.innerHTML="";
-
-  Object.entries(studenti).forEach(([id,s])=>{
-    const li=document.createElement("li");
-    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) 
-      <button onclick="modStudent('${id}')">Modifica</button>
-      <button style="background:#dc3545;color:white" onclick="deleteStudent('${id}')">Elimina</button>`;
-    ul.appendChild(li);
   });
 }
-function modStudent(id){
-  const s=studenti[id];
-  const n=prompt("Nome",s.nome); const c=prompt("Cognome",s.cognome);
-  const l=prompt("Classe",s.classe); const p=prompt("Password",s.password);
-  db.ref("studenti/"+id).set({nome:n||s.nome,cognome:c||s.cognome,classe:l||s.classe,password:p||s.password});
-}
-function deleteStudent(id){
-  if(!confirm("Sei sicuro di voler eliminare questo studente?")) return;
 
-  // ottieni il nome completo dello studente
+function deleteStudent(id){
+  if (!confirm("Sei sicuro di voler eliminare questo studente?")) return;
+
   const nomeCompleto = studenti[id].nome + " " + studenti[id].cognome;
 
-  // rimuove lo studente dal database
+  // elimina studente
   db.ref("studenti/" + id).remove();
 
-  // aggiorna la variabile in memoria
-  delete studenti[id];
-
-  // rimuove lo studente da tutte le registrazioni
+  // rimuove lo studente da tutte le iscrizioni ai corsi
   Object.keys(registrazioni).forEach(cid => {
     const arr = (registrazioni[cid] || []).filter(n => n !== nomeCompleto);
     db.ref("registrazioni/" + cid).set(arr);
   });
-
-  // aggiorna la lista
-  renderStudentList();
 }
 function addCorso(){
   const cn=document.getElementById("cn").value.trim(); const ci=document.getElementById("ci").value.trim();
