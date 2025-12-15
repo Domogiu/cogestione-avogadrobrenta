@@ -436,11 +436,25 @@ function modCourse(id){
   const max=parseInt(prompt("Max partecipanti",c.max)); const g=prompt("Giorno",c.giorno);
   db.ref("corsi/"+id).set({id,nome:n||c.nome,inizio:ci||c.inizio,fine:cf||c.fine,aula:ca||c.aula,docente:cd||c.docente,descrizione:desc||c.descrizione,max:max||c.max,giorno:g||c.giorno});
 }
+// Listener globale per aggiornare lo stato delle iscrizioni
+db.ref("iscrizioniBloccate").on("value", snap => {
+  iscrizioniBloccate = snap.val() || false;
+});
+
+// Funzione admin per bloccare/riattivare iscrizioni
 function toggleIscrizioni() {
-  iscrizioniBloccate = !iscrizioniBloccate; // inverte lo stato
-  alert("Iscrizioni " + (iscrizioniBloccate ? "bloccate" : "riattivate"));
-  render(); // aggiorna la schermata attuale
-}
+  const nuovoStato = !iscrizioniBloccate; // inverte lo stato locale
+  db.ref("iscrizioniBloccate").set(nuovoStato)  // salva su Firebase
+    .then(() => {
+      iscrizioniBloccate = nuovoStato; // aggiorna anche la variabile locale
+      alert("Iscrizioni " + (iscrizioniBloccate ? "bloccate" : "riattivate"));
+      render(); // aggiorna la schermata attuale
+    })
+    .catch(err => {
+      console.error("Errore nel blocco/riavvio iscrizioni:", err);
+      alert("Errore durante il cambio dello stato delle iscrizioni.");
+    });
+  }
 /* RICERCA */
 function cercaStudente(){
   const val=document.getElementById("rs").value.toLowerCase(); let out="";
