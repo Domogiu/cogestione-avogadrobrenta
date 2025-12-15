@@ -86,18 +86,21 @@ function renderLogin() {
   if (!nome || !cognome || !classe || !email || !password) return alert("Completa tutti i campi");
   if (!email.endsWith("@liceoavogadro.onmicrosoft.com")) return alert("Inserisci una email scolastica valida");
 
-  // Verifica che l'email non sia già registrata
   const esiste = Object.values(studenti).some(u => u.email === email);
   if (esiste) return alert("Email già registrata");
 
   const id = Date.now() + Math.random();
-  const userObj = { nome, cognome, classe, email, password }; // password in chiaro, meglio hash lato client se vuoi sicurezza
+  const userObj = { nome, cognome, classe, email, password };
+  
   db.ref("studenti/" + id).set(userObj)
     .then(() => {
       alert("Registrazione completata!");
-      renderLogin();
+      renderLogin(); // Torna al login dopo la registrazione
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+      console.error(err);
+      alert("Errore nella registrazione, controlla console");
+    });
 }
 function login() {
   const email = document.getElementById("email").value.trim().toLowerCase();
