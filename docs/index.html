@@ -18,6 +18,7 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 <h1>Cogestione Studentesca</h1>
@@ -261,7 +262,8 @@ function renderAdmin(){
   <input id="sn" placeholder="Nome"><input id="sc" placeholder="Cognome">
   <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
   <button onclick="addStudente()">Aggiungi</button>
-  <input type="file" id="file" accept=".csv,.txt"><button onclick="uploadStudent()">Carica file</button>
+  <input type="file" id="file" accept=".pdf">
+<button onclick="uploadStudent()">Carica PDF</button>
   <ul id="studentList"></ul></div>
 
   <div class="card">
@@ -307,15 +309,59 @@ function addStudente(){
   const id=Date.now(); db.ref("studenti/"+id).set({nome:n,cognome:c,classe:l,password:p});
   document.getElementById("sn").value=document.getElementById("sc").value=document.getElementById("sl").value=document.getElementById("sp").value="";
 }
+
 function uploadStudent(){
-  const f=document.getElementById("file");
-  if(!f.files[0]) return alert("Seleziona file");
-  const r=new FileReader();
-  r.onload=e=>{ e.target.result.split("\n").forEach(l=>{
-    const [n,c,lcl,p]=l.split(",");
-    if(n&&c&&lcl&&p) db.ref("studenti/"+Date.now()+Math.random()).set({nome:n.trim(),cognome:c.trim(),classe:lcl.trim(),password:p.trim()});
-  }); };
-  r.readAsText(f.files[0]);
+  const input = document.getElementById("file");
+  if(!input.files[0]) return alert("Seleziona un PDF");
+
+  const file = input.files[0];
+  const reader = new FileReader();
+
+  reader.onload = function(){
+    const typedarray = new Uint8Array(this.result);
+
+    pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+      let text = "";
+
+      const promises = [];
+      for(let i=1; i<=pdf.numPages; i++){
+        promises.push(
+          pdf.getPage(i).then(page =>
+            page.getTextContent().then(content => {
+              content.items.forEach(item => text += item.str + "\n");
+            })
+          )
+        );
+      }
+
+      Promise.all(promises).then(() => {
+        const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+
+        lines.forEach(line => {
+          const parts = line.split(" ");
+          if(parts.length < 4) return;
+
+          const nome = parts[0];
+          const cognome = parts[1];
+          const classe = parts[2];
+          const password = parts.slice(3).join(" ");
+
+          const id = Date.now() + Math.random();
+          db.ref("studenti/" + id).set({
+            nome,
+            cognome,
+            classe,
+            password
+          });
+        });
+
+        alert("Studenti caricati dal PDF");
+        renderStudentList();
+      });
+    });
+  };
+
+  reader.readAsArrayBuffer(file);
 }
 function renderStudentList(){
   const ul=document.getElementById("studentList"); 
