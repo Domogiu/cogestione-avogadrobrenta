@@ -355,12 +355,13 @@ function uploadStudent(){
           });
         });
 
-        alert("Studenti caricati dal PDF");
-        renderStudentList();
+        
       });
     });
   };
 
+alert("Studenti caricati dal PDF");
+        renderStudentList();
   reader.readAsArrayBuffer(file);
 }
 function renderStudentList(){
