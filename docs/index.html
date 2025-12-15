@@ -253,7 +253,7 @@ function renderAdmin(){
   <div class="card">
   <h3>Giorno visibile agli studenti</h3>
   <select id="giornoSelect"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
-  <button onclick="setGiornoStudente()">Imposta</button>
+  <button onclick="impostaGiorno()">Imposta</button>
   </div>
 
   <div class="card">
@@ -292,8 +292,12 @@ function tornaAlMenu(){
   }
   render();
 }
-function impostaGiorno(){ db.ref("giornoStudente").set(document.getElementById("giornoSelect").value); }
-
+function impostaGiorno() {
+  const nuovoGiorno = document.getElementById("giornoSelect").value;
+  giornoStudente = nuovoGiorno;         // Aggiorna subito la variabile locale
+  db.ref("giornoStudente").set(nuovoGiorno)
+    .then(() => render());               // Rerender per aggiornare subito la vista
+  }
 function addStudente(){
   const n=document.getElementById("sn").value.trim();
   const c=document.getElementById("sc").value.trim();
