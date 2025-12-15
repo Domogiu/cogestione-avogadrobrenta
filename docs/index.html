@@ -167,18 +167,12 @@ html += `</div>`;
         }
     });
 
-    // Determina classi e pulsante
     let cardClass = '';
     let buttonHtml = '';
 
     if (iscrizioniBloccate) {
-        if (iscritto) {
-            cardClass = ''; // corso normale
-            buttonHtml = `<button onclick="annulla('${id}')">Annulla iscrizione</button>`;
-        } else {
-            cardClass = 'course-disabled'; // trasparente e non cliccabile
-            buttonHtml = `<button disabled>Iscrizioni bloccate</button>`;
-        }
+        cardClass = iscritto ? '' : 'course-disabled';
+        buttonHtml = `<button disabled>${iscritto ? "Iscrizione bloccata" : "Iscrizioni bloccate"}</button>`;
     } else {
         cardClass = (pieno && !iscritto || overlap) ? 'course-disabled' : '';
         if (iscritto) {
