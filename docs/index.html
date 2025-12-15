@@ -259,12 +259,17 @@ function renderAdmin(){
 
   <div class="card">
   <h3>Aggiungi Studente</h3>
-  <input id="sn" placeholder="Nome"><input id="sc" placeholder="Cognome">
-  <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
+  <input id="sn" placeholder="Nome">
+  <input id="sc" placeholder="Cognome">
+  <input id="sl" placeholder="Classe">
+  <input id="sp" placeholder="Password">
   <button onclick="addStudente()">Aggiungi</button>
-  <input type="file" id="file" accept=".pdf">
-<button onclick="uploadStudent()">Carica PDF</button>
-  <ul id="studentList"></ul></div>
+  <br><br>
+  <input type="file" id="file" accept=".csv,.txt">
+  <button onclick="uploadStudent()">Carica file</button>
+  <button onclick="document.getElementById('file').value=''" style="background:#dc3545;color:white">Cancella file</button>
+  <ul id="studentList"></ul>
+</div>
 
   <div class="card">
   <h3>Aggiungi Corso</h3>
@@ -312,74 +317,32 @@ function addStudente(){
 
 function uploadStudent(){
   const f = document.getElementById("file");
-  if(!f.files[0]) return alert("Seleziona un file");
+  if(!f.files[0]) return alert("Seleziona un file CSV o TXT");
 
-  const reader = new FileReader();
-  reader.onload = e => {
-    const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l);
-    const promises = lines.map(line => {
-      const [nome, cognome, classe, password] = line.split(",").map(s => s.trim());
-      if(nome && cognome && classe && password){
-        const id = Date.now() + Math.random(); // id unico
-        return db.ref("studenti/" + id).set({nome, cognome, classe, password});
-      } else {
-        return Promise.resolve(); // ignora righe malformate
-      }
-    });
+  const r = new FileReader();
+  r.onload = e => {
+    const righe = e.target.result.split("\n");
+    const promises = righe.map(l => {
+      const parti = l.split(",");
+      if(parti.length < 4) return null; // Salta righe non valide
+      const [nome, cognome, classe, password] = parti.map(s => s.trim());
+      if(!nome || !cognome || !classe || !password) return null;
+      const id = Date.now() + Math.random();
+      return db.ref("studenti/" + id).set({nome, cognome, classe, password});
+    }).filter(x => x !== null);
 
     Promise.all(promises)
       .then(() => {
         alert("Studenti caricati correttamente!");
-        f.value = ""; // reset del file
-        renderStudentList(); // aggiorna subito la lista nella schermata admin
+        renderStudentList();  // Aggiorna subito la lista
+        f.value = "";          // Pulisce il file selezionato
       })
       .catch(err => {
-        console.error(err);
-        alert("Errore durante il caricamento degli studenti. Controlla console.");
+        console.error("Errore caricamento studenti:", err);
+        alert("Errore nel caricamento. Controlla console.");
       });
   };
-
-  reader.readAsText(f.files[0]);
-}
-
-function renderStudentList(){
-  const ul=document.getElementById("studentList"); 
-  ul.innerHTML="";
-
-  Object.entries(studenti).forEach(([id,s])=>{
-    const li=document.createElement("li");
-    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) 
-      <button onclick="modStudent('${id}')">Modifica</button>
-      <button style="background:#dc3545;color:white" onclick="deleteStudent('${id}')">Elimina</button>`;
-    ul.appendChild(li);
-  });
-}
-function modStudent(id){
-  const s=studenti[id];
-  const n=prompt("Nome",s.nome); const c=prompt("Cognome",s.cognome);
-  const l=prompt("Classe",s.classe); const p=prompt("Password",s.password);
-  db.ref("studenti/"+id).set({nome:n||s.nome,cognome:c||s.cognome,classe:l||s.classe,password:p||s.password});
-}
-function deleteStudent(id){
-  if(!confirm("Sei sicuro di voler eliminare questo studente?")) return;
-
-  // ottieni il nome completo dello studente
-  const nomeCompleto = studenti[id].nome + " " + studenti[id].cognome;
-
-  // rimuove lo studente dal database
-  db.ref("studenti/" + id).remove();
-
-  // aggiorna la variabile in memoria
-  delete studenti[id];
-
-  // rimuove lo studente da tutte le registrazioni
-  Object.keys(registrazioni).forEach(cid => {
-    const arr = (registrazioni[cid] || []).filter(n => n !== nomeCompleto);
-    db.ref("registrazioni/" + cid).set(arr);
-  });
-
-  // aggiorna la lista
-  renderStudentList();
+  r.readAsText(f.files[0]);
 }
 function addCorso(){
   const cn=document.getElementById("cn").value.trim(); const ci=document.getElementById("ci").value.trim();
