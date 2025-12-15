@@ -292,7 +292,7 @@ function tornaAlMenu(){
   }
   render();
 }
-function impostaGiorno() {
+function impostaGiorno(){
   const nuovoGiorno = document.getElementById("giornoSelect").value;
   giornoStudente = nuovoGiorno;         // Aggiorna subito la variabile locale
   db.ref("giornoStudente").set(nuovoGiorno)
