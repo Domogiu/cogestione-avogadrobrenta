@@ -39,51 +39,7 @@ const db = firebase.database();
 /* STATE */
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
 let adminFrom = "login"; // memorizza la provenienza dell'area admin
-let iscrizioniBloccate = false; // false = iscrizioni aperte, true = blocco attivo
-// Lista iniziale studenti 1C con password generate
-const studenti1C = [
-  {nome:"Alessandri", cognome:"Domitilla", classe:"1C", password:"K7dP2"},
-  {nome:"Angelozzi", cognome:"Lavinia", classe:"1C", password:"Q9mX1"},
-  {nome:"Arcioni", cognome:"Arturo", classe:"1C", password:"R4fH8"},
-  {nome:"Barbieri", cognome:"Giuseppe", classe:"1C", password:"Z2wN5"},
-  {nome:"Bencardino", cognome:"Matteo", classe:"1C", password:"P6vB3"},
-  {nome:"Buono", cognome:"Agata Layla", classe:"1C", password:"L8sJ7"},
-  {nome:"Coppola", cognome:"Sofia", classe:"1C", password:"T1gF4"},
-  {nome:"De Nunzio", cognome:"Francesca", classe:"1C", password:"M3cK9"},
-  {nome:"Di Dio", cognome:"Francesco", classe:"1C", password:"X5rQ2"},
-  {nome:"Di Lembo", cognome:"Ludovico", classe:"1C", password:"S7hL8"},
-  {nome:"Diurni", cognome:"Simone", classe:"1C", password:"V4nZ6"},
-  {nome:"Iannetti", cognome:"Alessandro", classe:"1C", password:"F2kP9"},
-  {nome:"Lipari", cognome:"Emma", classe:"1C", password:"H6tR3"},
-  {nome:"Loi", cognome:"Rebecca", classe:"1C", password:"D8bJ1"},
-  {nome:"Luzi", cognome:"Elisabetta", classe:"1C", password:"W5mX7"},
-  {nome:"Milan", cognome:"Alessandro", classe:"1C", password:"G3qC8"},
-  {nome:"Morace", cognome:"Anna Pinelli", classe:"1C", password:"Y9vN4"},
-  {nome:"Musco", cognome:"Alessandro", classe:"1C", password:"K1rT5"},
-  {nome:"Palombini", cognome:"Andrea", classe:"1C", password:"J7sH2"},
-  {nome:"Paloni", cognome:"Filippo", classe:"1C", password:"N6dQ9"},
-  {nome:"Peruzzi", cognome:"Matteo", classe:"1C", password:"U2fL7"},
-  {nome:"Torrisi", cognome:"Giulia", classe:"1C", password:"C4kV1"},
-  {nome:"Trotta", cognome:"Elena", classe:"1C", password:"E5hR8"}
-];
-
-function popolaStudentiIniziali(){
-  const promises = studenti1C.map(s => {
-    const id = Date.now() + Math.random(); // id univoco
-    return db.ref("studenti/" + id).set(s);
-  });
-
-  // Aspetta che tutte le scritture siano completate
-  Promise.all(promises)
-    .then(() => {
-      alert("Studenti 1C inseriti correttamente!");
-      // Aggiorna la lista studenti subito
-      renderStudentList();
-    })
-    .catch(err => {
-      console.error("Errore inserimento studenti:", err);
-      alert("Errore nell'inserimento studenti. Controlla console.");
-    });
+let iscrizioniBloccate = false; // false = iscrizioni aperte, true = blocco 
 }
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
@@ -301,28 +257,42 @@ function renderAdmin(){
   <button onclick="impostaGiorno()">Imposta</button>
   </div>
 
- <div class="card">
-      <h3>Giorno visibile agli studenti</h3>
-      <select id="giornoSelect">
-        <option>Giorno 1</option>
-        <option>Giorno 2</option>
-        <option>Giorno 3</option>
-      </select>
-      <button onclick="impostaGiorno()">Imposta</button>
-      <button type="button" style="background:#dc3545;color:white;margin-top:10px;" onclick="popolaStudentiIniziali()">
-  Popola studenti 1C
-</button>
-    </div>
+<div class="card">
+  <h3>Giorno visibile agli studenti</h3>
+  <select id="giornoSelect">
+    <option>Giorno 1</option>
+    <option>Giorno 2</option>
+    <option>Giorno 3</option>
+  </select>
+  <button onclick="impostaGiorno()">Imposta</button>
+</div>
 
-    <div class="card">
+<div class="card">
   <h3>Aggiungi Studente</h3>
-  <input id="sn" placeholder="Nome"><input id="sc" placeholder="Cognome">
-  <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
+
+  <input id="sn" placeholder="Nome">
+  <input id="sc" placeholder="Cognome">
+  <input id="sl" placeholder="Classe">
+  <input id="sp" placeholder="Password">
+
   <button onclick="addStudente()">Aggiungi</button>
-  <input type="file" id="file" accept=".csv,.txt"><button onclick="uploadStudent()">Carica file</button>
+
+  <hr>
+
+  <button
+    type="button"
+    style="background:#dc3545;color:white"
+    onclick="popolaStudentiIniziali()">
+    Popola studenti 1C
+  </button>
+
+  <br><br>
+
+  <input type="file" id="file" accept=".csv,.txt">
+  <button onclick="uploadStudent()">Carica file</button>
+
   <ul id="studentList"></ul>
 </div>
-<button style="background:#dc3545;color:white" onclick="popolaStudentiIniziali()">Popola studenti 1C</button>
 
     <div class="card">
       <h3>Aggiungi Corso</h3>
