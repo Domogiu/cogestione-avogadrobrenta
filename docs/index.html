@@ -233,12 +233,10 @@ function annulla(id){
 function checkAdmin(){
   const code = prompt("Password admin");
   if(code==="...."){
-    adminFrom = utente ? "home" : "login";
-    view = "admin";
+    view="admin";
     render();
   }
 }
-
 function renderAdmin(){
   let html=`<h2>Area Admin</h2>
   <button onclick="renderHome()">Torna al menu</button>
@@ -305,12 +303,7 @@ function renderStudentList(){
   const ul=document.getElementById("studentList"); ul.innerHTML="";
   Object.entries(studenti).forEach(([id,s])=>{
     const li=document.createElement("li");
-   li.innerHTML = `
-  ${s.nome} ${s.cognome} (${s.classe})
-  <button onclick="modStudent('${id}')">Modifica</button>
-  <button style="background:#dc3545;color:white"
-          onclick="deleteStudent('${id}')">Elimina</button>;
-    ul.appendChild(li);
+   li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) <button onclick="modStudent('${id}')">Modifica</button>`;
   });
 }
 function deleteStudent(id){
@@ -386,29 +379,6 @@ function cercaStudente(){
     });
   }); document.getElementById("res").innerHTML=out||"Nessun risultato";
 }
-  <!-- TASTO BLOCCO / SBLOCCO ISCRIZIONI -->
-<button style="background:#dc3545;color:white;margin-top:20px"
-        onclick="toggleBlocco()">
-  Blocca / Sblocca iscrizioni
-</button>
-
-<script>
-/* Variabile globale */
-let bloccoIscrizioni = false;
-
-/* Funzione per bloccare/sbloccare iscrizioni */
-function toggleBlocco(){
-  bloccoIscrizioni = !bloccoIscrizioni;
-  db.ref("bloccoIscrizioni").set(bloccoIscrizioni);
-  alert(bloccoIscrizioni ? "Iscrizioni bloccate" : "Iscrizioni sbloccate");
-}
-
-/* Sincronizzazione realtime: aggiorna automaticamente tutti i dispositivi */
-db.ref("bloccoIscrizioni").on("value", snapshot => {
-  bloccoIscrizioni = !!snapshot.val();
-  renderCorsi(); // Aggiorna l'interfaccia studente
-});
-
 </script>
 </body>
 </html>
