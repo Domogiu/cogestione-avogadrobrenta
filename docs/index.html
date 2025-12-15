@@ -312,18 +312,14 @@ function renderAdmin(){
     </div>
 
     <div class="card">
-      <h3>Aggiungi Studente</h3>
-      <input id="sn" placeholder="Nome">
-      <input id="sc" placeholder="Cognome">
-      <input id="sl" placeholder="Classe">
-      <input id="sp" placeholder="Password">
-      <button onclick="addStudente()">Aggiungi</button>
-      <input type="file" id="file" accept=".csv,.txt">
-      <button onclick="uploadStudent()">Carica file</button>
-      <ul id="studentList"></ul>
-      <!-- Tasto per inserire tutti gli studenti della 1C -->
-      <button onclick="popolaStudentiIniziali()">Popola studenti 1C</button>
-    </div>
+  <h3>Aggiungi Studente</h3>
+  <input id="sn" placeholder="Nome"><input id="sc" placeholder="Cognome">
+  <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
+  <button onclick="addStudente()">Aggiungi</button>
+  <input type="file" id="file" accept=".csv,.txt"><button onclick="uploadStudent()">Carica file</button>
+  <ul id="studentList"></ul>
+</div>
+<button style="background:#dc3545;color:white" onclick="popolaStudentiIniziali()">Popola studenti 1C</button>
 
     <div class="card">
       <h3>Aggiungi Corso</h3>
