@@ -148,19 +148,7 @@ function renderCorsi(){
     html += `<div class="orario-btn ${filtroOrario===o?'disabled':''}"
                   onclick="filtroOrario='${o}'; renderCorsi()">${o}</div>`;
   });
-  // Dentro renderCorsi(), nella creazione del div di ogni corso:
-const disabledByOverlapOrFull = disabledByOverlap || pieno || bloccoIscrizioni;
-const buttonHtml = iscritto 
-    ? `<button ${bloccoIscrizioni ? "disabled" : ""} onclick="annulla('${id}')">Annulla iscrizione</button>` 
-    : `<button ${disabledByOverlapOrFull ? "disabled" : ""} onclick="iscrivi('${id}')">Iscriviti</button>`;
-
-html += `<div class="card course-container ${disabledByOverlapOrFull ? 'disabled' : ''}">
-           <h3>${c.nome}</h3>
-           <p>${c.giorno} | ${c.inizio}-${c.fine} | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'}</p>
-           <p>${c.descrizione || ''}</p>
-           ${buttonHtml}
-           ${pieno && !iscritto ? '<div class="course-full">Corso pieno!</div>' : ''}
-         </div>`;
+  
   html += `</div><br>`;
 
   corsiGiorno.forEach(([id,c])=>{
