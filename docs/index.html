@@ -148,6 +148,19 @@ function renderCorsi(){
     html += `<div class="orario-btn ${filtroOrario===o?'disabled':''}"
                   onclick="filtroOrario='${o}'; renderCorsi()">${o}</div>`;
   });
+  // Dentro renderCorsi(), nella creazione del div di ogni corso:
+const disabledByOverlapOrFull = disabledByOverlap || pieno || bloccoIscrizioni;
+const buttonHtml = iscritto 
+    ? `<button ${bloccoIscrizioni ? "disabled" : ""} onclick="annulla('${id}')">Annulla iscrizione</button>` 
+    : `<button ${disabledByOverlapOrFull ? "disabled" : ""} onclick="iscrivi('${id}')">Iscriviti</button>`;
+
+html += `<div class="card course-container ${disabledByOverlapOrFull ? 'disabled' : ''}">
+           <h3>${c.nome}</h3>
+           <p>${c.giorno} | ${c.inizio}-${c.fine} | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'}</p>
+           <p>${c.descrizione || ''}</p>
+           ${buttonHtml}
+           ${pieno && !iscritto ? '<div class="course-full">Corso pieno!</div>' : ''}
+         </div>`;
   html += `</div><br>`;
 
   corsiGiorno.forEach(([id,c])=>{
@@ -230,9 +243,12 @@ function annulla(id){
 
 /* ADMIN */
 function checkAdmin(){
-  const p=prompt("Password admin");
-  if(p===ADMIN_PASSWORD){ view="admin"; render(); }
-  else alert("Password errata");
+  const code = prompt("Password admin");
+  if(code==="...."){
+    adminFrom = utente ? "home" : "login";
+    view = "admin";
+    render();
+  }
 }
 
 function renderAdmin(){
@@ -273,14 +289,7 @@ function renderAdmin(){
 
 /* FUNZIONI ADMIN */
 function tornaAlMenu(){
-  // Se l'utente è loggato, torna ai corsi
-  if(utente){
-    view = "home";
-  } 
-  // Se NON è loggato, torna al login
-  else {
-    view = "login";
-  }
+  view = adminFrom;
   render();
 }
 function impostaGiorno(){ db.ref("giornoStudente").set(document.getElementById("giornoSelect").value); }
@@ -308,8 +317,23 @@ function renderStudentList(){
   const ul=document.getElementById("studentList"); ul.innerHTML="";
   Object.entries(studenti).forEach(([id,s])=>{
     const li=document.createElement("li");
-    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) <button onclick="modStudent('${id}')">Modifica</button>`;
+   li.innerHTML = `
+  ${s.nome} ${s.cognome} (${s.classe})
+  <button onclick="modStudent('${id}')">Modifica</button>
+  <button style="background:#dc3545;color:white"
+          onclick="deleteStudent('${id}')">Elimina</button>;
     ul.appendChild(li);
+  });
+}
+function deleteStudent(id){
+  if(!confirm("Eliminare definitivamente lo studente?")) return;
+
+  db.ref("studenti/"+id).remove();
+
+  // rimuove anche dalle registrazioni
+  Object.keys(registrazioni).forEach(cid=>{
+    const arr = registrazioni[cid].filter(n=> n !== (studenti[id].nome+" "+studenti[id].cognome));
+    db.ref("registrazioni/"+cid).set(arr);
   });
 }
 function modStudent(id){
@@ -374,6 +398,29 @@ function cercaStudente(){
     });
   }); document.getElementById("res").innerHTML=out||"Nessun risultato";
 }
+  <!-- TASTO BLOCCO / SBLOCCO ISCRIZIONI -->
+<button style="background:#dc3545;color:white;margin-top:20px"
+        onclick="toggleBlocco()">
+  Blocca / Sblocca iscrizioni
+</button>
+
+<script>
+/* Variabile globale */
+let bloccoIscrizioni = false;
+
+/* Funzione per bloccare/sbloccare iscrizioni */
+function toggleBlocco(){
+  bloccoIscrizioni = !bloccoIscrizioni;
+  db.ref("bloccoIscrizioni").set(bloccoIscrizioni);
+  alert(bloccoIscrizioni ? "Iscrizioni bloccate" : "Iscrizioni sbloccate");
+}
+
+/* Sincronizzazione realtime: aggiorna automaticamente tutti i dispositivi */
+db.ref("bloccoIscrizioni").on("value", snapshot => {
+  bloccoIscrizioni = !!snapshot.val();
+  renderCorsi(); // Aggiorna l'interfaccia studente
+});
+
 </script>
 </body>
 </html>
