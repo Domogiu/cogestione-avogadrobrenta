@@ -263,7 +263,7 @@ function renderAdmin(){
   <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
   <button onclick="addStudente()">Aggiungi</button>
   <input type="file" id="file" accept=".pdf">
-<button onclick="uploadStudent()">Carica PDF</button>
+  <button onclick="uploadStudent()">Carica PDF</button>
   <ul id="studentList"></ul></div>
 
   <div class="card">
@@ -300,69 +300,96 @@ function impostaGiorno() {
   db.ref("giornoStudente").set(nuovoGiorno)
     .then(() => render());               // Rerender per aggiornare subito la vista
   }
-function addStudente(){
-  const n=document.getElementById("sn").value.trim();
-  const c=document.getElementById("sc").value.trim();
-  const l=document.getElementById("sl").value.trim();
-  const p=document.getElementById("sp").value.trim();
-  if(!n||!c||!l||!p) return alert("Completa tutti i campi");
-  const id=Date.now(); db.ref("studenti/"+id).set({nome:n,cognome:c,classe:l,password:p});
-  document.getElementById("sn").value=document.getElementById("sc").value=document.getElementById("sl").value=document.getElementById("sp").value="";
+function addStudente() {
+  const n = document.getElementById("sn").value.trim();
+  const c = document.getElementById("sc").value.trim();
+  const l = document.getElementById("sl").value.trim();
+  const p = document.getElementById("sp").value.trim();
+
+  if (!n || !c || !l || !p) return alert("Completa tutti i campi");
+
+  const id = Date.now() + Math.random();
+  db.ref("studenti/" + id).set({nome: n, cognome: c, classe: l, password: p})
+    .then(() => {
+      renderStudentList(); // aggiorna subito la lista
+      document.getElementById("sn").value = "";
+      document.getElementById("sc").value = "";
+      document.getElementById("sl").value = "";
+      document.getElementById("sp").value = "";
+    })
+    .catch(err => {
+      console.error("Errore aggiunta studente:", err);
+      alert("Errore durante l'aggiunta dello studente. Controlla la console.");
+    });
 }
 
-function uploadStudent(){
-  const input = document.getElementById("file");
-  if(!input.files[0]) return alert("Seleziona un PDF");
+function uploadStudent() {
+  const f = document.getElementById("file");
+  if (!f.files[0]) return alert("Seleziona un file CSV o TXT");
 
-  const file = input.files[0];
+  const file = f.files[0];
+  const filename = file.name.toLowerCase();
+  if (!filename.endsWith(".csv") && !filename.endsWith(".txt")) {
+    return alert("Il file deve essere CSV o TXT");
+  }
+
   const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l);
+    const promises = [];
 
-  reader.onload = function(){
-    const typedarray = new Uint8Array(this.result);
-
-    pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-      let text = "";
-
-      const promises = [];
-      for(let i=1; i<=pdf.numPages; i++){
-        promises.push(
-          pdf.getPage(i).then(page =>
-            page.getTextContent().then(content => {
-              content.items.forEach(item => text += item.str + "\n");
-            })
-          )
-        );
+    lines.forEach(line => {
+      const [nome, cognome, classe, password] = line.split(",").map(x => x.trim());
+      if (nome && cognome && classe && password) {
+        const id = Date.now() + Math.random();
+        promises.push(db.ref("studenti/" + id).set({nome, cognome, classe, password}));
       }
-
-      Promise.all(promises).then(() => {
-        const lines = text.split("\n").map(l => l.trim()).filter(l => l);
-
-        lines.forEach(line => {
-          const parts = line.split(" ");
-          if(parts.length < 4) return;
-
-          const nome = parts[0];
-          const cognome = parts[1];
-          const classe = parts[2];
-          const password = parts.slice(3).join(" ");
-
-          const id = Date.now() + Math.random();
-          db.ref("studenti/" + id).set({
-            nome,
-            cognome,
-            classe,
-            password
-          });
-        });
-
-        
-      });
     });
+
+    Promise.all(promises)
+      .then(() => {
+        alert("Studenti aggiunti correttamente!");
+        renderStudentList();
+        f.value = ""; // pulisce il file
+      })
+      .catch(err => {
+        console.error("Errore nell'inserimento studenti:", err);
+        alert("Errore durante l'aggiunta degli studenti. Controlla la console.");
+      });
   };
 
-alert("Studenti caricati dal PDF");
-        renderStudentList();
-  reader.readAsArrayBuffer(file);
+  reader.readAsText(file);
+}
+
+function renderStudentList() {
+  const ul = document.getElementById("studentList");
+  ul.innerHTML = "";
+  Object.entries(studenti).forEach(([id, s]) => {
+    const li = document.createElement("li");
+    li.innerHTML = `${s.nome} ${s.cognome} (${s.classe}) <button onclick="modStudent('${id}')">Modifica</button>
+                    <button style="background:#dc3545;color:white" onclick="deleteStudent('${id}')">Elimina</button>`;
+    ul.appendChild(li);
+  });
+}
+
+function deleteStudent(id) {
+  if (!confirm("Sei sicuro di voler eliminare questo studente?")) return;
+  db.ref("studenti/" + id).remove()
+    .then(() => renderStudentList());
+}
+
+function modStudent(id) {
+  const s = studenti[id];
+  const n = prompt("Nome", s.nome);
+  const c = prompt("Cognome", s.cognome);
+  const l = prompt("Classe", s.classe);
+  const p = prompt("Password", s.password);
+  db.ref("studenti/" + id).set({
+    nome: n || s.nome,
+    cognome: c || s.cognome,
+    classe: l || s.classe,
+    password: p || s.password
+  }).then(() => renderStudentList());
 }
 function renderStudentList(){
   const ul=document.getElementById("studentList"); 
