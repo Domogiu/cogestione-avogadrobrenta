@@ -38,7 +38,7 @@ const db = firebase.database();
 
 /* STATE */
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
-
+let adminFrom = "login"; // memorizza la provenienza dell'area admin
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
   const d = snap.val() || {};
@@ -230,14 +230,19 @@ function annulla(id){
 
 /* ADMIN */
 function checkAdmin(){
-  const p=prompt("Password admin");
-  if(p===ADMIN_PASSWORD){ view="admin"; render(); }
-  else alert("Password errata");
+  const p = prompt("Password admin");
+  if(p === ADMIN_PASSWORD){
+    // se utente è loggato => provenienza home, altrimenti login
+    adminFrom = utente ? "home" : "login";
+    view = "admin";
+    render();
+  } else {
+    alert("Password errata");
+  }
 }
-
 function renderAdmin(){
   let html=`<h2>Area Admin</h2>
-  <button onclick="renderHome()">Torna al menu</button>
+  <button onclick="tornaAlMenu()">Torna al menu</button>
   <div class="card">
   <h3>Giorno visibile agli studenti</h3>
   <select id="giornoSelect"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
@@ -273,13 +278,10 @@ function renderAdmin(){
 
 /* FUNZIONI ADMIN */
 function tornaAlMenu(){
-  // Se l'utente è loggato, torna ai corsi
-  if(utente){
-    view = "home";
-  } 
-  // Se NON è loggato, torna al login
-  else {
-    view = "login";
+  if(adminFrom === "home") {
+    view = "home";   // torna alla schermata corsi dello studente
+  } else {
+    view = "login";  // torna al login
   }
   render();
 }
