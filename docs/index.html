@@ -36,7 +36,12 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
+// Listener globale per lo stato iscrizioni
+db.ref("iscrizioniBloccate").on("value", snap => {
+  iscrizioniBloccate = snap.val() || false; // aggiorna la variabile locale
+  render(); // aggiorna la vista su tutti i dispositivi
+});
+  
 /* STATE */
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
 let adminFrom = "login"; // memorizza la provenienza dell'area admin
@@ -441,14 +446,11 @@ db.ref("iscrizioniBloccate").on("value", snap => {
   iscrizioniBloccate = snap.val() || false;
 });
 
-// Funzione admin per bloccare/riattivare iscrizioni
 function toggleIscrizioni() {
-  const nuovoStato = !iscrizioniBloccate; // inverte lo stato locale
-  db.ref("iscrizioniBloccate").set(nuovoStato)  // salva su Firebase
+  const nuovoStato = !iscrizioniBloccate;
+  db.ref("iscrizioniBloccate").set(nuovoStato)
     .then(() => {
-      iscrizioniBloccate = nuovoStato; // aggiorna anche la variabile locale
-      alert("Iscrizioni " + (iscrizioniBloccate ? "bloccate" : "riattivate"));
-      render(); // aggiorna la schermata attuale
+      alert("Iscrizioni " + (nuovoStato ? "bloccate" : "riattivate"));
     })
     .catch(err => {
       console.error("Errore nel blocco/riavvio iscrizioni:", err);
