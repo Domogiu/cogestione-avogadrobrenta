@@ -315,17 +315,27 @@ function uploadStudent(){
   if(!f.files[0]) return alert("Seleziona un file");
 
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async function(e){
     const lines = e.target.result.split("\n").map(l => l.trim()).filter(l => l);
     const promises = lines.map(line => {
-      const [nome, cognome, classe, password] = line.split(",").map(s => s.trim());
-      if(nome && cognome && classe && password){
-        const id = Date.now() + Math.random(); // id unico
-        return db.ref("studenti/" + id).set({nome, cognome, classe, password});
-      } else {
-        return Promise.resolve(); // ignora righe malformate
-      }
-    });
+      const [nome, cognome, classe, password] = line.split(",");
+      if(!nome || !cognome || !classe || !password) return null;
+      const id = Date.now() + Math.random();
+      return db.ref("studenti/" + id).set({nome: nome.trim(), cognome: cognome.trim(), classe: classe.trim(), password: password.trim()});
+    }).filter(p => p !== null);
+
+    try {
+      await Promise.all(promises);
+      alert("Studenti aggiunti correttamente!");
+      renderStudentList();   // aggiorna subito la lista visibile
+      f.value = "";          // reset del file input
+    } catch(err) {
+      console.error("Errore nell'inserimento studenti:", err);
+      alert("Errore nell'inserimento studenti. Controlla console.");
+    }
+  }
+  reader.readAsText(f.files[0]);
+}
 
     Promise.all(promises)
       .then(() => {
