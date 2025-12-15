@@ -131,61 +131,66 @@ function logout(){ utente=null; view="login"; render(); }
 function renderCorsi(){
   if(!utente) return;
 
+  const key = utente.nome + " " + utente.cognome;
+
   let html = `<h2>Benvenuto, ${utente.nome} ${utente.cognome} (${utente.classe})</h2>
               <button onclick="logout()">Logout</button><br><br>`;
 
-  // Filtra i corsi del giorno selezionato
   const corsiGiorno = Object.entries(corsi).filter(([id,c])=>c.giorno===giornoStudente);
 
-  // Estrai e ordina gli orari
-  const orari = [...new Set(corsiGiorno.map(([id,c])=>c.inizio))].sort((a,b)=>{
-    const toMinutes = t => { const [h,m]=t.split(":").map(Number); return h*60+m; };
-    return toMinutes(a)-toMinutes(b);
-  });
+  const orari = [...new Set(corsiGiorno.map(([id,c])=>c.inizio))]
+    .sort((a,b)=>timeToMinutes(a)-timeToMinutes(b));
 
-  // Barra orari
   html += `<div class="orario-menu">
-             <div class="orario-btn ${!filtroOrario?'disabled':''}" onclick="filtroOrario=null; renderCorsi()">Tutti</div>`;
+             <div class="orario-btn ${!filtroOrario?'disabled':''}"
+                  onclick="filtroOrario=null; renderCorsi()">Tutti</div>`;
   orari.forEach(o=>{
-    html += `<div class="orario-btn ${filtroOrario===o?'disabled':''}" onclick="filtroOrario='${o}'; renderCorsi()">${o}</div>`;
+    html += `<div class="orario-btn ${filtroOrario===o?'disabled':''}"
+                  onclick="filtroOrario='${o}'; renderCorsi()">${o}</div>`;
   });
   html += `</div><br>`;
 
-  // Lista corsi
   corsiGiorno.forEach(([id,c])=>{
     if(filtroOrario && c.inizio!==filtroOrario) return;
 
-    const iscritti = registrazioni[id]||[];
-    const iscritto = iscritti.includes(utente.nome+" "+utente.cognome);
-    const pieno = iscritti.length >= c.max;
+    const iscritti = registrazioni[id] || [];
+    const iscritto = iscritti.includes(key);
+    const pieno = c.max && iscritti.length >= c.max;
 
-    // Controllo sovrapposizione
-    let disabledByOverlap=false;
+    let disabledByOverlap = false;
+
     for(const cid in registrazioni){
-      if(registrazioni[cid].includes(utente.nome+" "+utente.cognome)){
+      if(registrazioni[cid].includes(key)){
         const c2 = corsi[cid];
-        const s1=timeToMinutes(corso.inizio);
-const e1=timeToMinutes(corso.fine);
-const s2=timeToMinutes(c2.inizio);
-const e2=timeToMinutes(c2.fine);
+        if(!c2 || c2.giorno !== c.giorno) continue;
 
-if(
-  c2.giorno === corso.giorno &&
-  !(e1 <= s2 || e2 <= s1)
-){
-  return alert("Non puoi iscriverti a più corsi nello stesso orario");
-}
+        const s1=timeToMinutes(c.inizio);
+        const e1=timeToMinutes(c.fine);
+        const s2=timeToMinutes(c2.inizio);
+        const e2=timeToMinutes(c2.fine);
+
+        if(!(e1<=s2 || e2<=s1)){
+          disabledByOverlap = true;
+          break;
+        }
       }
     }
 
-    html += `<div class="card course-container ${disabledByOverlap||pieno?'disabled':''}">
-               <h3>${c.nome}</h3>
-               <p>${c.giorno} | ${c.inizio}-${c.fine} | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'}</p>
-               <p>${c.descrizione||''}</p>
-               ${iscritto?`<button onclick="annulla('${id}')">Annulla iscrizione</button>`:
-                 `<button ${disabledByOverlap||pieno?'disabled':''} onclick="iscrivi('${id}')">Iscriviti</button>`}
-               ${pieno && !iscritto?'<div class="course-full">Corso pieno!</div>':''}
-             </div>`;
+    html += `
+      <div class="card course-container ${(disabledByOverlap&&!iscritto)||pieno?'disabled':''}">
+        <h3>${c.nome}</h3>
+        <p>${c.giorno} | ${c.inizio}-${c.fine} | Aula:${c.aula||'N/A'} | Docente:${c.docente||'N/A'}</p>
+        <p>${c.descrizione||''}</p>
+
+        ${
+          iscritto
+            ? `<button onclick="annulla('${id}')">Annulla iscrizione</button>`
+            : `<button ${(disabledByOverlap||pieno)?'disabled':''}
+                 onclick="iscrivi('${id}')">Iscriviti</button>`
+        }
+
+        ${pieno&&!iscritto?'<div class="course-full">Corso pieno</div>':''}
+      </div>`;
   });
 
   document.getElementById("app").innerHTML = html;
@@ -196,31 +201,24 @@ function iscrivi(id){
   const corso = corsi[id];
   if(!corso) return alert("Corso non trovato");
 
-  // Controllo sovrapposizione orari
   for(const cid in registrazioni){
-  if(registrazioni[cid].includes(key)){
-    const c2 = corsi[cid];
+    if(registrazioni[cid].includes(key)){
+      const c2 = corsi[cid];
+      if(!c2 || c2.giorno !== corso.giorno) continue;
 
-    // ⚠️ controllo fondamentale
-    if(!c2) continue;
-
-    if(
-      c2.giorno === corso.giorno &&
-      !(corso.fine <= c2.inizio || c2.fine <= corso.inizio)
-    ){
-      return alert("Non puoi iscriverti a più corsi nello stesso orario");
+      if(!(corso.fine<=c2.inizio || c2.fine<=corso.inizio)){
+        return alert("Non puoi iscriverti a più corsi nello stesso orario");
+      }
     }
   }
-}
 
   if(!registrazioni[id]) registrazioni[id]=[];
-  if(registrazioni[id].includes(key)) return alert("Sei già iscritto a questo corso");
-  if(registrazioni[id].length>=corso.max) return alert("Posti esauriti");
+  if(registrazioni[id].includes(key)) return alert("Sei già iscritto");
+  if(corso.max && registrazioni[id].length>=corso.max) return alert("Posti esauriti");
 
   registrazioni[id].push(key);
   db.ref("registrazioni/"+id).set(registrazioni[id])
-    .then(()=> renderCorsi())
-    .catch(err=> alert("Errore durante l'iscrizione: "+err));
+    .then(()=>renderCorsi());
 }
 
 
