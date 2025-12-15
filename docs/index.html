@@ -307,10 +307,14 @@ function uploadStudent(){
   r.readAsText(f.files[0]);
 }
 function renderStudentList(){
-  const ul=document.getElementById("studentList"); ul.innerHTML="";
+  const ul=document.getElementById("studentList"); 
+  ul.innerHTML="";
+
   Object.entries(studenti).forEach(([id,s])=>{
     const li=document.createElement("li");
-    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) <button onclick="modStudent('${id}')">Modifica</button>`;
+    li.innerHTML=`${s.nome} ${s.cognome} (${s.classe}) 
+      <button onclick="modStudent('${id}')">Modifica</button>
+      <button style="background:#dc3545;color:white" onclick="deleteStudent('${id}')">Elimina</button>`;
     ul.appendChild(li);
   });
 }
@@ -319,6 +323,21 @@ function modStudent(id){
   const n=prompt("Nome",s.nome); const c=prompt("Cognome",s.cognome);
   const l=prompt("Classe",s.classe); const p=prompt("Password",s.password);
   db.ref("studenti/"+id).set({nome:n||s.nome,cognome:c||s.cognome,classe:l||s.classe,password:p||s.password});
+}
+  function deleteStudent(id){
+  if(!confirm("Sei sicuro di voler eliminare questo studente?")) return;
+
+  // rimuove lo studente dal database
+  db.ref("studenti/" + id).remove();
+
+  // rimuove lo studente da tutte le registrazioni
+  Object.keys(registrazioni).forEach(cid => {
+    const arr = (registrazioni[cid] || []).filter(n => n !== (studenti[id].nome + " " + studenti[id].cognome));
+    db.ref("registrazioni/" + cid).set(arr);
+  });
+
+  // aggiorna la lista
+  renderStudentList();
 }
 
 function addCorso(){
