@@ -68,11 +68,22 @@ const studenti1C = [
 ];
 
 function popolaStudentiIniziali(){
-  studenti1C.forEach(s => {
+  const promises = studenti1C.map(s => {
     const id = Date.now() + Math.random(); // id univoco
-    db.ref("studenti/" + id).set(s);
+    return db.ref("studenti/" + id).set(s);
   });
-  alert("Studenti 1C inseriti correttamente!");
+
+  // Aspetta che tutte le scritture siano completate
+  Promise.all(promises)
+    .then(() => {
+      alert("Studenti 1C inseriti correttamente!");
+      // Aggiorna la lista studenti subito
+      renderStudentList();
+    })
+    .catch(err => {
+      console.error("Errore inserimento studenti:", err);
+      alert("Errore nell'inserimento studenti. Controlla console.");
+    });
 }
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
