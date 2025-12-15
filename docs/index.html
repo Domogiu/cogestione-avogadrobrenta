@@ -66,7 +66,8 @@ const studenti1C = [
   {nome:"Torrisi", cognome:"Giulia", classe:"1C", password:"C4kV1"},
   {nome:"Trotta", cognome:"Elena", classe:"1C", password:"E5hR8"}
 ];
-  function popolaStudentiIniziali(){
+
+function popolaStudentiIniziali(){
   studenti1C.forEach(s => {
     const id = Date.now() + Math.random(); // id univoco
     db.ref("studenti/" + id).set(s);
