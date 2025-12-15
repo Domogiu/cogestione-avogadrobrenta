@@ -324,22 +324,27 @@ function modStudent(id){
   const l=prompt("Classe",s.classe); const p=prompt("Password",s.password);
   db.ref("studenti/"+id).set({nome:n||s.nome,cognome:c||s.cognome,classe:l||s.classe,password:p||s.password});
 }
-  function deleteStudent(id){
+function deleteStudent(id){
   if(!confirm("Sei sicuro di voler eliminare questo studente?")) return;
+
+  // ottieni il nome completo dello studente
+  const nomeCompleto = studenti[id].nome + " " + studenti[id].cognome;
 
   // rimuove lo studente dal database
   db.ref("studenti/" + id).remove();
 
+  // aggiorna la variabile in memoria
+  delete studenti[id];
+
   // rimuove lo studente da tutte le registrazioni
   Object.keys(registrazioni).forEach(cid => {
-    const arr = (registrazioni[cid] || []).filter(n => n !== (studenti[id].nome + " " + studenti[id].cognome));
+    const arr = (registrazioni[cid] || []).filter(n => n !== nomeCompleto);
     db.ref("registrazioni/" + cid).set(arr);
   });
 
   // aggiorna la lista
   renderStudentList();
 }
-
 function addCorso(){
   const cn=document.getElementById("cn").value.trim(); const ci=document.getElementById("ci").value.trim();
   const cf=document.getElementById("cf").value.trim(); const ca=document.getElementById("ca").value.trim();
