@@ -39,6 +39,7 @@ const db = firebase.database();
 /* STATE */
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
 let adminFrom = "login"; // memorizza la provenienza dell'area admin
+let iscrizioniBloccate = false;
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
   const d = snap.val() || {};
@@ -271,6 +272,10 @@ function renderAdmin(){
   <h3>Ricerca Studente</h3>
   <input id="rs" placeholder="Nome o cognome"><button onclick="cercaStudente()">Cerca</button>
   <div id="res"></div></div>`;
+
+  <button style="background:#dc3545;color:white" onclick="toggleIscrizioni()">
+  Blocca/Riavvia iscrizioni
+</button><br><br>
   document.getElementById("app").innerHTML = html;
   document.getElementById("giornoSelect").value = giornoStudente;
   renderStudentList(); renderCourseList();
@@ -399,6 +404,11 @@ function cercaStudente(){
       }
     });
   }); document.getElementById("res").innerHTML=out||"Nessun risultato";
+}
+  function toggleIscrizioni() {
+  iscrizioniBloccate = !iscrizioniBloccate; // inverte lo stato
+  alert("Iscrizioni " + (iscrizioniBloccate ? "bloccate" : "riattivate"));
+  render(); // aggiorna la schermata corrente
 }
 </script>
 </body>
