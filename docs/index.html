@@ -39,6 +39,7 @@ const db = firebase.database();
 /* STATE */
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
 let adminFrom = "login"; // memorizza la provenienza dell'area admin
+let iscrizioniBloccate = false; // false = iscrizioni aperte, true = blocco attivo
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
   const d = snap.val() || {};
@@ -117,8 +118,11 @@ html += `</div>`;
       <h3>${c.nome}</h3>
       <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'}</p>
       <p>${c.descrizione||''}</p>
-      ${iscritto?`<button onclick="annulla('${id}')">Annulla iscrizione</button>`:
-      `<button onclick="iscrivi('${id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`}
+     ${iscrizioniBloccate
+  ? `<button disabled>${iscritto ? "Iscrizioni bloccate" : "Iscriviti (bloccato)"}</button>`
+  : iscritto
+      ? `<button onclick="annulla('${id}')">Annulla iscrizione</button>`
+      : `<button onclick="iscrivi('${id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`}
     </div>`;
   });
 
@@ -242,6 +246,9 @@ function checkAdmin(){
 }
 function renderAdmin(){
   let html=`<h2>Area Admin</h2>
+  <button style="background:#dc3545;color:white" onclick="toggleIscrizioni()">
+  Blocca/Riavvia iscrizioni
+  </button><br><br>
   <button onclick="tornaAlMenu()">Torna al menu</button>
   <div class="card">
   <h3>Giorno visibile agli studenti</h3>
@@ -388,7 +395,11 @@ function modCourse(id){
   const max=parseInt(prompt("Max partecipanti",c.max)); const g=prompt("Giorno",c.giorno);
   db.ref("corsi/"+id).set({id,nome:n||c.nome,inizio:ci||c.inizio,fine:cf||c.fine,aula:ca||c.aula,docente:cd||c.docente,descrizione:desc||c.descrizione,max:max||c.max,giorno:g||c.giorno});
 }
-
+function toggleIscrizioni() {
+  iscrizioniBloccate = !iscrizioniBloccate; // inverte lo stato
+  alert("Iscrizioni " + (iscrizioniBloccate ? "bloccate" : "riattivate"));
+  render(); // aggiorna la schermata attuale
+}
 /* RICERCA */
 function cercaStudente(){
   const val=document.getElementById("rs").value.toLowerCase(); let out="";
