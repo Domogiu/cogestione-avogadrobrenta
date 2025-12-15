@@ -252,9 +252,21 @@ function renderAdmin(){
   <button onclick="tornaAlMenu()">Torna al menu</button>
   <div class="card">
   <h3>Giorno visibile agli studenti</h3>
-  <select id="giornoSelect"><option>Giorno 1</option><option>Giorno 2</option><option>Giorno 3</option></select>
+  <select id="giornoSelect">
+  <option>Giorno 1</option>
+  <option>Giorno 2</option>
+  <option>Giorno 3</option>
+  </select>
   <button onclick="impostaGiorno()">Imposta</button>
   </div>
+  <!-- resto dei card studenti/corsi/ricerca -->`;
+   document.getElementById("app").innerHTML = html;
+   // Imposta il valore selezionato corretto
+    document.getElementById("giornoSelect").value = giornoStudente;
+
+    // Richiama le funzioni per mostrare studenti e corsi
+    renderStudentList();
+    renderCourseList();
 
   <div class="card">
   <h3>Aggiungi Studente</h3>
@@ -296,7 +308,7 @@ function impostaGiorno(){
   const nuovoGiorno = document.getElementById("giornoSelect").value;
   giornoStudente = nuovoGiorno;         // Aggiorna subito la variabile locale
   db.ref("giornoStudente").set(nuovoGiorno)
-    .then(() => render());               // Rerender per aggiornare subito la vista
+    .then(() => render());               // Ricarica admin e aggiorna il select
   }
 function addStudente(){
   const n=document.getElementById("sn").value.trim();
