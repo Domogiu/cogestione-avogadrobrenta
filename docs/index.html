@@ -303,7 +303,7 @@ function renderAdmin(){
   <div class="card">
       <h3>Studenti registrati</h3>
       <ul id="studentList"></ul>
-  </div>;
+  </div>
 
   <div class="card">
   <h3>Aggiungi Corso</h3>
@@ -321,8 +321,7 @@ function renderAdmin(){
   <div id="res"></div></div>`;
   document.getElementById("app").innerHTML = html;
   document.getElementById("giornoSelect").value = giornoStudente;
-  renderStudentList(); renderCourseList(); renderStudentList();
-}
+  renderStudentList(); renderCourseList();
 
 /* FUNZIONI ADMIN */
 function tornaAlMenu(){
