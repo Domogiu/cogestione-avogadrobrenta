@@ -150,25 +150,29 @@ orari.forEach(o =>
 );
 html += `</div>`;
 
-  lista.forEach(([id,c])=>{
-    if(filtroOrario && c.inizio!==filtroOrario) return;
-    const iscr=registrazioni[id]||[];
-    const iscritto=iscr.includes(utente.nome+" "+utente.cognome);
-    const pieno=iscr.length>=c.max;
-    let overlap=false;
-    Object.entries(registrazioni).forEach(([cid,arr])=>{
-      if(arr.includes(utente.nome+" "+utente.cognome)){
-        const cc=corsi[cid];
-        if(cc.giorno===c.giorno && !(c.fine<=cc.inizio || cc.fine<=c.inizio) && id!==cid) overlap=true;
-      }
+ lista.forEach(([id, c]) => {
+    if (filtroOrario && c.inizio !== filtroOrario) return;
+
+    const iscritti = registrazioni[id] || [];
+    const iscritto = iscritti.includes(utente.nome + " " + utente.cognome);
+    const pieno = c.max && iscritti.length >= c.max;
+
+    let overlap = false;
+    Object.entries(registrazioni).forEach(([cid, arr]) => {
+        if (arr.includes(utente.nome + " " + utente.cognome)) {
+            const cc = corsi[cid];
+            if (cc.giorno === c.giorno && !(c.fine <= cc.inizio || cc.fine <= c.inizio) && id !== cid) {
+                overlap = true;
+            }
+        }
     });
 
-    // Calcolo classi da applicare
+    // Determina classi e pulsante
     let cardClass = '';
     let buttonHtml = '';
 
-    if(iscrizioniBloccate) {
-        if(iscritto){
+    if (iscrizioniBloccate) {
+        if (iscritto) {
             cardClass = ''; // corso normale
             buttonHtml = `<button onclick="annulla('${id}')">Annulla iscrizione</button>`;
         } else {
@@ -176,20 +180,20 @@ html += `</div>`;
             buttonHtml = `<button disabled>Iscrizioni bloccate</button>`;
         }
     } else {
-        cardClass = (pieno&&!iscritto||overlap) ? 'course-disabled' : '';
-        if(iscritto){
+        cardClass = (pieno && !iscritto || overlap) ? 'course-disabled' : '';
+        if (iscritto) {
             buttonHtml = `<button onclick="annulla('${id}')">Annulla iscrizione</button>`;
         } else {
-            buttonHtml = `<button onclick="iscrivi('${id}')" ${pieno||overlap?'disabled':''}>Iscriviti</button>`;
+            buttonHtml = `<button onclick="iscrivi('${id}')" ${pieno || overlap ? 'disabled' : ''}>Iscriviti</button>`;
         }
     }
 
-    html+=`
+    html += `
     <div class="card ${cardClass}">
-      <h3>${c.nome}</h3>
-      <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula||'N/A'} | Docente: ${c.docente||'N/A'}</p>
-      <p>${c.descrizione||''}</p>
-      ${buttonHtml}
+        <h3>${c.nome}</h3>
+        <p>${c.giorno} ${c.inizio}-${c.fine} | Aula: ${c.aula || 'N/A'} | Docente: ${c.docente || 'N/A'}</p>
+        <p>${c.descrizione || ''}</p>
+        ${buttonHtml}
     </div>`;
 });
   document.getElementById("app").innerHTML = html;
