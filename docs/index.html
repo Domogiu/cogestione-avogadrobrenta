@@ -301,15 +301,54 @@ function renderAdmin(){
   <button onclick="impostaGiorno()">Imposta</button>
   </div>
 
-  <div class="card">
-  <h3>Aggiungi Studente</h3>
-  <input id="sn" placeholder="Nome"><input id="sc" placeholder="Cognome">
-  <input id="sl" placeholder="Classe"><input id="sp" placeholder="Password">
-  <button onclick="addStudente()">Aggiungi</button>
-  <input type="file" id="file" accept=".csv,.txt"><button onclick="uploadStudent()">Carica file</button>
-  <ul id="studentList"></ul></div>
+ <div class="card">
+      <h3>Giorno visibile agli studenti</h3>
+      <select id="giornoSelect">
+        <option>Giorno 1</option>
+        <option>Giorno 2</option>
+        <option>Giorno 3</option>
+      </select>
+      <button onclick="impostaGiorno()">Imposta</button>
+    </div>
 
-  <button onclick="popolaStudentiIniziali()">Popola studenti 1C</button>
+    <div class="card">
+      <h3>Aggiungi Studente</h3>
+      <input id="sn" placeholder="Nome">
+      <input id="sc" placeholder="Cognome">
+      <input id="sl" placeholder="Classe">
+      <input id="sp" placeholder="Password">
+      <button onclick="addStudente()">Aggiungi</button>
+      <input type="file" id="file" accept=".csv,.txt">
+      <button onclick="uploadStudent()">Carica file</button>
+      <ul id="studentList"></ul>
+      <!-- Tasto per inserire tutti gli studenti della 1C -->
+      <button onclick="popolaStudentiIniziali()">Popola studenti 1C</button>
+    </div>
+
+    <div class="card">
+      <h3>Aggiungi Corso</h3>
+      <input id="cn" placeholder="Nome">
+      <input id="ci" placeholder="Inizio">
+      <input id="cf" placeholder="Fine">
+      <input id="ca" placeholder="Aula">
+      <input id="cd" placeholder="Docente">
+      <input id="cdesc" placeholder="Descrizione">
+      <input id="cmax" placeholder="Max partecipanti">
+      <select id="cg">
+        <option>Giorno 1</option>
+        <option>Giorno 2</option>
+        <option>Giorno 3</option>
+      </select>
+      <button onclick="addCorso()">Aggiungi</button>
+      <ul id="courseList"></ul>
+    </div>
+
+    <div class="card">
+      <h3>Ricerca Studente</h3>
+      <input id="rs" placeholder="Nome o cognome">
+      <button onclick="cercaStudente()">Cerca</button>
+      <div id="res"></div>
+    </div>
 
   <div class="card">
   <h3>Aggiungi Corso</h3>
