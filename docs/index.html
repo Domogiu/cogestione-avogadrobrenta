@@ -28,6 +28,7 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 <script>
 /* CONFIG FIREBASE */
 const ADMIN_PASSWORD = "cogestione?";
+const SEARCH_ONLY_PASSWORD = "pswsdo"; // password per sola ricerca studenti
 const firebaseConfig = {
   apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
   authDomain: "cogestione-liceo-avogadro.firebaseapp.com",
@@ -302,12 +303,19 @@ function annulla(id){
 /* ADMIN */
 function checkAdmin(){
   const p = prompt("Password admin");
+
   if(p === ADMIN_PASSWORD){
-    // se utente è loggato => provenienza home, altrimenti login
+    // accesso completo admin
     adminFrom = utente ? "home" : "login";
     view = "admin";
     render();
-  } else {
+  }
+  else if(p === SEARCH_ONLY_PASSWORD){
+    // accesso solo ricerca studenti
+    adminFrom = utente ? "home" : "login";
+    renderStudentSearchOnly();
+  }
+  else {
     alert("Password errata");
   }
 }
@@ -345,6 +353,21 @@ function renderAdmin(){
   document.getElementById("app").innerHTML = html;
   document.getElementById("giornoSelect").value = giornoStudente;
   renderStudentList(); renderCourseList(); renderStudentList();
+}
+  function renderStudentSearchOnly(){
+  let html = `
+    <h2>Ricerca Studente</h2>
+    <input id="rs" placeholder="Nome o cognome">
+    <button onclick="cercaStudente()">Cerca</button>
+    <div id="res"></div>
+    <br>
+    <button onclick="tornareDaSearchOnly()">Torna indietro</button>
+  `;
+  document.getElementById("app").innerHTML = html;
+}
+  function tornareDaSearchOnly(){
+  if(utente) view="home"; else view="login";
+  render();
 }
 
 /* FUNZIONI ADMIN */
