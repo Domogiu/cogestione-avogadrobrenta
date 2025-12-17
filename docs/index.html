@@ -28,24 +28,52 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 <script>
 /* CONFIG FIREBASE */
 const ADMIN_PASSWORD_HASH =
-"8c6976e5b5410415bde908bd4dee15dfb16bfae6f6bfae5e6c6f9b6b8f6c1a07";
-const SEARCH_ONLY_PASSWORD_HASH =
-"0c1e7e2cbb4c3c4e9a8b0c52d3f4fa8d5c3c2a9f98f5aabf3f9e4e6e8b7c2c11";
+  "4efff34f332ff7c913c6aaeaa3561aabf4030b4f391b987131a8c5f49c820b95"; 
 const firebaseConfig = {
-  apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
-  authDomain: "cogestione-liceo-avogadro.firebaseapp.com",
-  databaseURL: "https://cogestione-liceo-avogadro-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "cogestione-liceo-avogadro",
+  apiKey: "AIzaSyAt21j06RBBODY2_xi2hzwOTAuEtYSZMB0",
+  authDomain: "cirenaica-ad0ef.firebaseapp.com",
+  databaseURL: "https://cirenaica-ad0ef-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "cirenaica-ad0ef",
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+// 🔐 Funzione hash SHA-256
+async function sha256(text) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+async function checkAdmin() {
+  const p = prompt("Password admin");
+  if (!p) return;
 
+  const inputHash = await sha256(p);
+
+  if (inputHash === ADMIN_PASSWORD_HASH) {
+    adminFrom = utente ? "home" : "login";
+    view = "admin";
+    render();
+  } else {
+    alert("Password errata");
+  }
+}
+
+// ✅ COLLEGA IL BOTTONE
+document.getElementById("adminBtn").addEventListener("click", checkAdmin);
+// Listener globale per lo stato iscrizioni
+db.ref("iscrizioniBloccate").on("value", snap => {
+  iscrizioniBloccate = snap.val() || false; // aggiorna la variabile locale
+  render(); // aggiorna la vista su tutti i dispositivi
+});
+  
 /* STATE */
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
-let adminFrom = "login"; 
-let iscrizioniBloccate = false; 
-let loginMode = "login"; 
-
+let adminFrom = "login"; // memorizza la provenienza dell'area admin
+let iscrizioniBloccate = false; // false = iscrizioni aperte, true = blocco attivo
+let loginMode = "login"; // "login" | "register"  
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
   const d = snap.val() || {};
@@ -54,56 +82,11 @@ db.ref().on("value", snap=>{
   registrazioni = d.registrazioni || {};
   giornoStudente = d.giornoStudente || "Giorno 1";
 
-  if (view !== "admin") render();
-});
-
-db.ref("iscrizioniBloccate").on("value", snap => {
-  iscrizioniBloccate = snap.val() || false;
-  render();
-});
-
-async function hashPassword(str) {
-  const msgUint8 = new TextEncoder().encode(str);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-async function checkAdmin() {
-  const p = prompt("Password admin");
-  if (!p) return;
-
-  const hash = await hashPassword(p);
-
-  if (hash === ADMIN_PASSWORD_HASH) {
-    adminFrom = utente ? "home" : "login";
-    view = "admin";
+  // 🔒 BLOCCA RERENDER DURANTE LOGIN / REGISTRAZIONE
+  if (view !== "login") {
     render();
   }
-  else if (hash === SEARCH_ONLY_PASSWORD_HASH) {
-    renderStudentSearchOnly();
-  }
-  else {
-    alert("Password errata");
-  }
-}
-
-/* FUNZIONE RENDER SOLO RICERCA STUDENTE */
-function renderStudentSearchOnly(){
-  let html = `
-    <h2>Ricerca Studente</h2>
-    <input id="rs" placeholder="Nome o cognome">
-    <button onclick="cercaStudente()">Cerca</button>
-    <div id="res"></div>
-    <br>
-    <button onclick="tornareDaSearchOnly()">Torna indietro</button>
-  `;
-  document.getElementById("app").innerHTML = html;
-}
-function tornareDaSearchOnly(){
-  if(utente) view="home"; else view="login";
-  render();
-}
+});
 
 /* RENDER PRINCIPALE */
 function render(){
@@ -379,21 +362,6 @@ function renderAdmin(){
   document.getElementById("app").innerHTML = html;
   document.getElementById("giornoSelect").value = giornoStudente;
   renderStudentList(); renderCourseList(); renderStudentList();
-}
-  function renderStudentSearchOnly(){
-  let html = `
-    <h2>Ricerca Studente</h2>
-    <input id="rs" placeholder="Nome o cognome">
-    <button onclick="cercaStudente()">Cerca</button>
-    <div id="res"></div>
-    <br>
-    <button onclick="tornareDaSearchOnly()">Torna indietro</button>
-  `;
-  document.getElementById("app").innerHTML = html;
-}
-  function tornareDaSearchOnly(){
-  if(utente) view="home"; else view="login";
-  render();
 }
 
 /* FUNZIONI ADMIN */
