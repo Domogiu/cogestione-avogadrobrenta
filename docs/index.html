@@ -27,8 +27,8 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 
 <script>
 /* CONFIG FIREBASE */
-const ADMIN_PASSWORD_HASH = "7f7e8c0d0d6b8e6a4c9d0f3c1d8a7e1d9e3b6f47c1e4a9bcebdc3c3a3e8b9c5f";  
-const SEARCH_ONLY_PASSWORD_HASH = "9b0b5c6e3a2d1f7e4a8c6b9d0e3f5c2a7b1d9e4f6a8c3b0d5e7f1a2c9b4d8e"; 
+const ADMIN_PASSWORD_HASH = "3604c7b2f87757e3b7a6b04b4b8c4cce9f7a3e8a7620f80b48de1b9c362f92c0";  
+const SEARCH_ONLY_PASSWORD_HASH = "cb058e8f4df31a2e8b73b8d02c945dbf15e27ec9b40f209e23573980ffb15806"; 
 const firebaseConfig = {
   apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
   authDomain: "cogestione-liceo-avogadro.firebaseapp.com",
@@ -60,33 +60,32 @@ db.ref("iscrizioniBloccate").on("value", snap => {
   render();
 });
 
-// === HASH SHA-256 (UNA SOLA VOLTA) ===
 async function hashPassword(str) {
-  const msgUint8 = new TextEncoder().encode(str);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const msgUint8 = new TextEncoder().encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-/* FUNZIONE CHECK ADMIN */
 async function checkAdmin() {
-  const p = prompt("Password admin");
-  if (!p) return;
+    const p = prompt("Password admin");
+    if (!p) return; // annulla
 
-  const hash = await hashPassword(p);
+    const hash = await hashPassword(p);
 
-  if (hash === ADMIN_PASSWORD_HASH) {
-    adminFrom = utente ? "home" : "login";
-    view = "admin";
-    render();
-  }
-  else if (hash === SEARCH_ONLY_PASSWORD_HASH) {
-    adminFrom = utente ? "home" : "login";
-    renderStudentSearchOnly();
-  }
-  else {
-    alert("Password errata");
-  }
+    const ADMIN_PASSWORD_HASH = "3604c7b2f87757e3b7a6b04b4b8c4cce9f7a3e8a7620f80b48de1b9c362f92c0";
+    const SEARCH_ONLY_PASSWORD_HASH = "cb058e8f4df31a2e8b73b8d02c945dbf15e27ec9b40f209e23573980ffb15806";
+
+    if (hash === ADMIN_PASSWORD_HASH) {
+        adminFrom = utente ? "home" : "login";
+        view = "admin";
+        render();
+    } else if (hash === SEARCH_ONLY_PASSWORD_HASH) {
+        adminFrom = utente ? "home" : "login";
+        renderStudentSearchOnly();
+    } else {
+        alert("Password errata");
+    }
 }
 
 /* FUNZIONE RENDER SOLO RICERCA STUDENTE */
