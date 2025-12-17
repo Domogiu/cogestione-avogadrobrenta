@@ -308,23 +308,32 @@ async function hashPassword(pw) {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
-  function checkAdmin(){
+  async function checkAdmin(){
   const p = prompt("Password admin");
+  if(!p) return; // se premi Annulla
 
-  if(p === ADMIN_PASSWORD){
-    // accesso completo admin
+  const hash = await hashPassword(p);
+
+  if(hash === ADMIN_PASSWORD_HASH){
     adminFrom = utente ? "home" : "login";
     view = "admin";
     render();
   }
-  else if(p === SEARCH_ONLY_PASSWORD){
-    // accesso solo ricerca studenti
+  else if(hash === SEARCH_ONLY_PASSWORD_HASH){
     adminFrom = utente ? "home" : "login";
     renderStudentSearchOnly();
   }
   else {
     alert("Password errata");
   }
+}
+
+// funzione per hash della password
+async function hashPassword(str) {
+  const msgUint8 = new TextEncoder().encode(str);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 function renderAdmin(){
   let html=`<h2>Area Admin</h2>
