@@ -27,7 +27,7 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 
 <script>
 /* CONFIG FIREBASE */
-const ADMIN_PASSWORD = "cogestione?";
+const ADMIN_PASSWORD_HASH = "3c7f6a1e9f9b5d9c0a1e4b6d8f1c2e3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e"; 
 const SEARCH_ONLY_PASSWORD = "pswsdo"; // password per sola ricerca studenti
 const firebaseConfig = {
   apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
@@ -301,7 +301,14 @@ function annulla(id){
 }
 
 /* ADMIN */
-function checkAdmin(){
+async function hashPassword(pw) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pw);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+  function checkAdmin(){
   const p = prompt("Password admin");
 
   if(p === ADMIN_PASSWORD){
