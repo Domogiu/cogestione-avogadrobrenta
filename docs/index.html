@@ -56,8 +56,8 @@ db.ref().on("value", snap=>{
   registrazioni = d.registrazioni || {};
   giornoStudente = d.giornoStudente || "Giorno 1";
 
-  // 🔒 BLOCCA RERENDER DURANTE LOGIN / REGISTRAZIONE
-  if (view !== "login") {
+  // ⚠️ NON rerenderizzare mentre sei in admin
+  if (view !== "admin") {
     render();
   }
 });
