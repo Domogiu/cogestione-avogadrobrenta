@@ -27,18 +27,8 @@ input, select { width:100%; padding:8px; margin:6px 0; }
 
 <script>
 /* CONFIG FIREBASE */
-const ADMIN_PASSWORD_HASH = "b8d0f6a7b8353e6579cb0f1f1234567890abcdef1234567890abcdef12345678"; 
-const SEARCH_ONLY_PASSWORD_HASH = "a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcd"; 
-db.ref().on("value", snap=>{
-  const d = snap.val() || {};
-  studenti = d.studenti || {};
-  corsi = d.corsi || {};
-  registrazioni = d.registrazioni || {};
-  giornoStudente = d.giornoStudente || "Giorno 1";
-  if (view !== "admin") {
-    render();
-  }
-});
+const ADMIN_PASSWORD_HASH = "0bbeb2f60d1f..."; 
+const SEARCH_ONLY_PASSWORD_HASH = "f1c3e2d9a4b..."; 
 const firebaseConfig = {
   apiKey: "AIzaSyBGJZWfFzL9hIo84ukHrSNm1P_DxZLv-xM",
   authDomain: "cogestione-liceo-avogadro.firebaseapp.com",
@@ -57,7 +47,7 @@ db.ref("iscrizioniBloccate").on("value", snap => {
 let studenti={}, corsi={}, registrazioni={}, giornoStudente="Giorno 1", utente=null, view="login", filtroOrario=null;
 let adminFrom = "login"; // memorizza la provenienza dell'area admin
 let iscrizioniBloccate = false; // false = iscrizioni aperte, true = blocco attivo
-let loginMode = "login"; // "login" | "register"
+let loginMode = "login"; // "login" | "register"  
 /* REALTIME DATABASE LISTENER */
 db.ref().on("value", snap=>{
   const d = snap.val() || {};
